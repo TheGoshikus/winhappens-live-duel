@@ -32,13 +32,22 @@ export const gameConfigSchema = z
     maxStayStreak: int(0, 100).default(3),
     /** Множитель ставки при stay. */
     stayStakeMultiplier: int(1, 10).default(2),
-    /** Мин./макс. ставка S в minor units. Уточнить по §14. */
-    minStakeMinor: z.coerce.bigint().positive().default(100n),
-    maxStakeMinor: z.coerce.bigint().positive().default(100_000n),
+    /** Ставка S в minor units USDT (10⁻⁶): по умолчанию 1–100 USDT. Уточнить по §14. */
+    minStakeUsdt: z.coerce.bigint().positive().default(1_000_000n),
+    maxStakeUsdt: z.coerce.bigint().positive().default(100_000_000n),
+    /** Ставка S в minor units FUN (10⁻²). */
+    minStakeFun: z.coerce.bigint().positive().default(100n),
+    maxStakeFun: z.coerce.bigint().positive().default(10_000n),
+    /** Стартовый баланс фантиков гостя. */
+    funStartingBalance: z.coerce.bigint().nonnegative().default(100_000n),
   })
-  .refine((c) => c.minStakeMinor <= c.maxStakeMinor, {
-    message: 'minStakeMinor must be <= maxStakeMinor',
-    path: ['minStakeMinor'],
+  .refine((c) => c.minStakeUsdt <= c.maxStakeUsdt, {
+    message: 'minStakeUsdt must be <= maxStakeUsdt',
+    path: ['minStakeUsdt'],
+  })
+  .refine((c) => c.minStakeFun <= c.maxStakeFun, {
+    message: 'minStakeFun must be <= maxStakeFun',
+    path: ['minStakeFun'],
   });
 
 export type GameConfig = z.infer<typeof gameConfigSchema>;
@@ -46,7 +55,7 @@ export type GameConfig = z.infer<typeof gameConfigSchema>;
 const toEnvKey = (k: string) => 'GAME_' + k.replace(/[A-Z]/g, (c) => '_' + c).toUpperCase();
 
 export const gameEnvKeys = Object.fromEntries(
-  Object.keys(gameConfigSchema.innerType().shape).map((k) => [k, toEnvKey(k)]),
+  Object.keys(gameConfigSchema.innerType().innerType().shape).map((k) => [k, toEnvKey(k)]),
 ) as Record<keyof GameConfig, string>;
 
 export function gameConfigFromEnv(env: Record<string, string | undefined>): Record<string, string> {

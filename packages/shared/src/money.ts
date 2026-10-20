@@ -56,3 +56,11 @@ export function formatDecimal(v: Minor, exponent: number): string {
   const out = exponent === 0 ? s : `${s.slice(0, -exponent)}.${s.slice(-exponent)}`;
   return neg ? `-${out}` : out;
 }
+
+/** USDT — реальные деньги (расчётная валюта ledger), FUN — фантики гостевой игры (docs/decisions.md). */
+export const CURRENCIES = {
+  USDT: { exponent: 6, real: true },
+  FUN: { exponent: 2, real: false },
+} as const;
+export type Currency = keyof typeof CURRENCIES;
+export const currencySchema = z.enum(['USDT', 'FUN']);
