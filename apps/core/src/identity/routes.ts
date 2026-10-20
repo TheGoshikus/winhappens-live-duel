@@ -9,17 +9,10 @@ import {
 } from '@winhappens/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Eligibility } from '../eligibility/index.js';
-import { unauthorized } from '../errors.js';
+import { requireUser } from './auth.js';
 import { countryFromRequest } from './geo.js';
 import type { IdentityService } from './service.js';
 import type { Tokens } from './tokens.js';
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    /** Пользователь из Bearer-токена; null — анонимный запрос. */
-    userId: string | null;
-  }
-}
 
 export interface IdentityRoutesDeps {
   identity: IdentityService;
@@ -32,18 +25,8 @@ export interface IdentityRoutesDeps {
 }
 
 export async function identityRoutes(app: FastifyInstance, deps: IdentityRoutesDeps) {
-  const { identity, tokens, eligibility } = deps;
+  const { identity, eligibility } = deps;
   const country = (req: FastifyRequest) => countryFromRequest(req, deps.countryHeader);
-  const requireUser = (req: FastifyRequest) => {
-    if (!req.userId) throw unauthorized();
-    return req.userId;
-  };
-
-  app.decorateRequest('userId', null);
-  app.addHook('onRequest', async (req) => {
-    const h = req.headers.authorization;
-    if (h?.startsWith('Bearer ')) req.userId = (await tokens.verifyAccess(h.slice(7))).userId;
-  });
 
   app.post('/auth/guest', async (req, reply) => {
     const body = guestRequestSchema.parse(req.body ?? {});

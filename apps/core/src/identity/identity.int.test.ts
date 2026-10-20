@@ -4,24 +4,10 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../app.js';
 import type { Db } from '../db/index.js';
+import { testEnv } from '../test/env.js';
 import { startTestDb } from '../test/postgres.js';
 import { createIdentityModule } from '../wiring.js';
 import { MockOtpSender } from './otp.js';
-
-const env = {
-  NODE_ENV: 'test',
-  CORE_DATABASE_URL: 'postgres://unused@localhost/core',
-  REDIS_URL: 'redis://localhost:6379',
-  LIVEKIT_URL: 'ws://localhost:7880',
-  LIVEKIT_API_KEY: 'devkey',
-  LIVEKIT_API_SECRET: 'x'.repeat(32),
-  PAYMENT_GATEWAY_URL: 'http://localhost:3100',
-  JWT_SECRET: 'test-secret-test-secret-test-secret!',
-  GEO_REAL_MONEY_BLOCKED: 'US',
-  GEO_ADULT_ALLOWED: 'DE',
-  OTP_MAX_ATTEMPTS: '3',
-  OTP_MAX_PER_HOUR: '3',
-};
 
 let db: Db;
 let stop: () => Promise<void>;
@@ -42,7 +28,7 @@ beforeEach(async () => {
   otp = new MockOtpSender();
   app = buildApp({
     probes: {},
-    identity: createIdentityModule(db, loadCoreConfig(env), { otp, clock: () => now }),
+    identity: createIdentityModule(db, loadCoreConfig(testEnv), { otp, clock: () => now }),
   });
 });
 

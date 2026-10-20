@@ -7,6 +7,8 @@ import { MockOtpSender, type OtpSender } from './identity/otp.js';
 import type { IdentityRoutesDeps } from './identity/routes.js';
 import { createIdentityService } from './identity/service.js';
 import { createTokens } from './identity/tokens.js';
+import type { WalletRoutesDeps } from './wallet/routes.js';
+import { createWalletService } from './wallet/service.js';
 
 /** Собирает модуль identity из конфига. Провайдеры OTP/KYC пока mock (этап 1). */
 export function createIdentityModule(
@@ -44,5 +46,15 @@ export function createIdentityModule(
     game,
     countryHeader: env.GEO_COUNTRY_HEADER,
     devRoutes: env.NODE_ENV !== 'production',
+  };
+}
+
+export function createWalletModule(db: Db, config: CoreConfig): WalletRoutesDeps {
+  return {
+    wallet: createWalletService(db, {
+      funStartingBalance: config.game.funStartingBalance,
+      rakeBps: config.game.rakeBps,
+    }),
+    devRoutes: config.env.NODE_ENV !== 'production',
   };
 }

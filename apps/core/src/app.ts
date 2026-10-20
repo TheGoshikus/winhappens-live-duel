@@ -2,12 +2,15 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 import { ZodError } from 'zod';
 import { AppError } from './errors.js';
 import { registerHealth, type Probe } from './health.js';
+import { registerAuth } from './identity/auth.js';
 import { identityRoutes, type IdentityRoutesDeps } from './identity/routes.js';
+import { walletRoutes, type WalletRoutesDeps } from './wallet/routes.js';
 
 export interface CoreDeps {
   probes: Record<string, Probe>;
   /** Без identity поднимается только /health (тесты каркаса). */
   identity?: IdentityRoutesDeps;
+  wallet?: WalletRoutesDeps;
 }
 
 export function buildApp(deps: CoreDeps, opts: FastifyServerOptions = {}) {
@@ -30,7 +33,11 @@ export function buildApp(deps: CoreDeps, opts: FastifyServerOptions = {}) {
   });
 
   registerHealth(app, 'core', deps.probes);
-  const identity = deps.identity;
-  if (identity) app.register(async (scope) => identityRoutes(scope, identity));
+  const { identity, wallet } = deps;
+  if (identity) {
+    registerAuth(app, identity.tokens);
+    app.register(async (scope) => identityRoutes(scope, identity));
+    if (wallet) app.register(async (scope) => walletRoutes(scope, wallet));
+  }
   return app;
 }

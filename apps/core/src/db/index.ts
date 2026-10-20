@@ -2,6 +2,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { Migrator, type Migration } from 'kysely/migration';
 import pg from 'pg';
 import * as m0001 from './migrations/0001_identity.js';
+import * as m0002 from './migrations/0002_ledger.js';
 import type { Database } from './schema.js';
 
 export type { Database } from './schema.js';
@@ -21,6 +22,7 @@ export function createDb(connectionString: string, max = 10) {
 /** Миграции перечислены явно, чтобы они попадали в бандл tsup. */
 const migrations: Record<string, Migration> = {
   '0001_identity': m0001,
+  '0002_ledger': m0002,
 };
 
 // Migrator принимает Kysely<any>: схема до миграций ещё не совпадает с Database.
