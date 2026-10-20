@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, gameEnvKeys, loadCoreConfig, loadGatewayConfig } from './index.js';
+import {
+  ConfigError,
+  gameEnvKeys,
+  geoPolicyFromEnv,
+  loadCoreConfig,
+  loadGatewayConfig,
+} from './index.js';
 
 const coreEnv = {
   CORE_DATABASE_URL: 'postgres://u:p@localhost:5432/core',
@@ -8,6 +14,7 @@ const coreEnv = {
   LIVEKIT_API_KEY: 'devkey',
   LIVEKIT_API_SECRET: 'x'.repeat(32),
   PAYMENT_GATEWAY_URL: 'http://localhost:3100',
+  JWT_SECRET: 'j'.repeat(32),
 };
 
 describe('config', () => {
@@ -18,7 +25,8 @@ describe('config', () => {
     expect(game.seatHoldSec).toBe(10);
     expect(game.shiftDecisionSec).toBe(15);
     expect(game.reconnectGraceSec).toBe(30);
-    expect(game.minStakeMinor).toBe(100n);
+    expect(game.minStakeUsdt).toBe(1_000_000n);
+    expect(game.minStakeFun).toBe(100n);
   });
 
   it('читает игровые параметры из GAME_*', () => {
@@ -33,7 +41,7 @@ describe('config', () => {
       ...coreEnv,
       REDIS_URL: 'nope',
       GAME_RAKE_BPS: '20000',
-      GAME_MIN_STAKE_MINOR: '0',
+      GAME_MIN_STAKE_USDT: '0',
     };
     expect(() => loadCoreConfig(bad)).toThrow(ConfigError);
     expect(() => loadCoreConfig(bad)).toThrow(/REDIS_URL[\s\S]*/);
@@ -42,8 +50,8 @@ describe('config', () => {
 
   it('min ставка не больше max', () => {
     expect(() =>
-      loadCoreConfig({ ...coreEnv, GAME_MIN_STAKE_MINOR: '500', GAME_MAX_STAKE_MINOR: '100' }),
-    ).toThrow(/minStakeMinor/);
+      loadCoreConfig({ ...coreEnv, GAME_MIN_STAKE_USDT: '500', GAME_MAX_STAKE_USDT: '100' }),
+    ).toThrow(/minStakeUsdt/);
   });
 
   it('gateway требует свою БД', () => {
@@ -52,5 +60,21 @@ describe('config', () => {
       loadGatewayConfig({ PAYMENTS_DATABASE_URL: 'postgres://x@h/payments' }).env
         .PAYMENT_GATEWAY_PORT,
     ).toBe(3100);
+  });
+
+  it('гео-политика: списки стран и булевы флаги', () => {
+    const { env } = loadCoreConfig({
+      ...coreEnv,
+      GEO_REAL_MONEY_BLOCKED: 'us, fr',
+      GEO_REQUIRE_MATCH: 'false',
+    });
+    expect(geoPolicyFromEnv(env).realMoneyBlocked).toEqual(new Set(['US', 'FR']));
+    expect(env.GEO_REQUIRE_MATCH).toBe(false);
+    expect(env.GEO_ADULT_ALLOWED).toEqual([]);
+    expect(env.KYC_REQUIRED_FOR_REAL_PLAY).toBe(true);
+    expect(() => loadCoreConfig({ ...coreEnv, GEO_ADULT_ALLOWED: 'Russia' })).toThrow(
+      /GEO_ADULT_ALLOWED/,
+    );
+    expect(() => loadCoreConfig({ ...coreEnv, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);
   });
 });

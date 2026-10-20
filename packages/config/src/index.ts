@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { gameConfigFromEnv, gameConfigSchema } from './game.js';
+import { identityEnvSchema } from './identity.js';
 
 export * from './game.js';
+export * from './identity.js';
 
 export class ConfigError extends Error {
   override name = 'ConfigError';
@@ -14,7 +16,7 @@ const common = {
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 };
 
-export const coreEnvSchema = z.object({
+export const coreEnvSchema = identityEnvSchema.extend({
   ...common,
   CORE_PORT: port.default(3000),
   CORE_DATABASE_URL: url,
