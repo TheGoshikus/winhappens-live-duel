@@ -9,6 +9,12 @@ export interface VideoDeps {
   livekit: LiveKit;
   eligibility: Pick<Eligibility, 'canBeDealer'>;
   subject: (userId: string) => Promise<EligibilitySubject>;
+  /** Крупье с идущей сессией — «занята» в ленте. */
+  busy?: () => Promise<Set<string>>;
+  /** Крупье ушла из эфира: завершить её сессии. */
+  onOffline?: (userId: string) => Promise<void>;
+  /** Состав эфира изменился (WS dealers.updated). */
+  onTablesChanged?: () => Promise<void>;
   clock?: () => Date;
 }
 
@@ -17,6 +23,9 @@ export function createVideoService({
   livekit,
   eligibility,
   subject,
+  busy = async () => new Set<string>(),
+  onOffline,
+  onTablesChanged,
   clock = () => new Date(),
 }: VideoDeps) {
   return {
@@ -54,6 +63,7 @@ export function createVideoService({
           }),
         )
         .execute();
+      await onTablesChanged?.();
       return livekit.dealerToken(userId, q.displayName, room);
     },
 
@@ -63,6 +73,8 @@ export function createVideoService({
         .set({ status: 'offline', updated_at: clock() })
         .where('user_id', '=', userId)
         .execute();
+      await onOffline?.(userId);
+      await onTablesChanged?.();
     },
 
     /** Крупье в эфире, давно вышедшие — первыми. */
@@ -73,6 +85,7 @@ export function createVideoService({
         .where('status', '=', 'live')
         .orderBy('went_live_at')
         .execute();
+      const engaged = await busy();
       return rows.map((r) => ({
         id: r.user_id,
         name: r.display_name,
@@ -80,6 +93,7 @@ export function createVideoService({
         currency: r.currency,
         minStake: r.min_stake.toString(),
         room: r.room,
+        busy: engaged.has(r.user_id),
       }));
     },
 

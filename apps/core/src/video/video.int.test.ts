@@ -105,6 +105,7 @@ describe('крупье', () => {
       currency: 'FUN',
       minStake: 500n,
       room: live.room,
+      busy: false,
     });
 
     const watch = roomAccessSchema.parse(

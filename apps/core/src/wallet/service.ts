@@ -157,6 +157,28 @@ export function createWalletService(db: Db, settings: WalletSettings) {
       });
     },
 
+    /** Конец сессии: вернуть на main точный остаток депозита этой сессии (сессий может быть несколько). */
+    releaseAmount(
+      q: { userId: string; currency: Currency; sessionId: string; amount: Minor },
+      outer?: Db,
+    ) {
+      return tx(outer, async (trx) => {
+        if (q.amount === 0n) return { released: 0n };
+        const r = await transfer(
+          trx,
+          'session.release',
+          `release:${q.sessionId}:${q.userId}`,
+          { type: 'session', id: q.sessionId },
+          move(
+            await userAccount(trx, q.userId, 'session_hold', q.currency),
+            await userAccount(trx, q.userId, 'main', q.currency),
+            q.amount,
+          ),
+        );
+        return { released: r.replayed ? 0n : q.amount };
+      });
+    },
+
     /**
      * Ставка S на коммите: S → round_pot, сбор со ставки → house_rake. Оба списываются с
      * session_hold, поэтому депозит сессии должен покрывать ставку вместе со сбором.

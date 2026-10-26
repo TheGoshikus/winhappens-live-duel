@@ -164,6 +164,25 @@ export interface DuelRoundTable {
   signature: string | null;
   created_at: CreatedAt;
   settled_at: Timestamp | null;
+  session_id: string | null;
+}
+
+export interface DuelSessionTable {
+  id: string;
+  dealer_id: string;
+  player_id: string;
+  currency: 'USDT' | 'FUN';
+  stake: bigint;
+  deposit: bigint;
+  player_hold_left: bigint;
+  dealer_hold_left: bigint;
+  status: 'active' | 'ended';
+  end_reason: string | null;
+  started_at: Timestamp;
+  ends_at: Timestamp;
+  ended_at: Timestamp | null;
+  player_offline_at: Timestamp | null;
+  dealer_offline_at: Timestamp | null;
 }
 
 export interface Database {
@@ -180,6 +199,7 @@ export interface Database {
   ledger_entry: LedgerEntryTable;
   dealer_profile: DealerProfileTable;
   duel_round: DuelRoundTable;
+  duel_session: DuelSessionTable;
 }
 
 export type User = Selectable<UsersTable>;

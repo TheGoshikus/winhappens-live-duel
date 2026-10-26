@@ -1,90 +1,53 @@
 import { z } from 'zod';
-import { minorSchema, nonNegativeMinorSchema, positiveMinorSchema } from './money.js';
+import { currencySchema, minorSchema } from './money.js';
+import { roundViewSchema } from './round.js';
 
 /**
- * WS-протокол core ↔ клиент.
+ * WS-протокол core ↔ клиент (architecture §2). Команды идут через REST, сокет — для событий
+ * сервера: клиенту не нужно опрашивать. Конверт: { type, ...поля }.
  *
- * ЧЕРНОВИК: события собраны по architecture.md / payments.md. Сверить и дополнить по §12 ТЗ
- * (docs/spec.md) — файла ещё нет в репозитории.
- *
- * Конверт: { type, payload, ts? }; ts — серверное время в мс (architecture §6.3).
+ * Авторизация — первым сообщением (токен не попадает в URL и логи прокси).
  */
-const uuid = z.string().uuid();
-const seat = z.union([z.literal(0), z.literal(1)]);
-const hex = z.string().regex(/^[0-9a-f]+$/i);
-
-const event = <T extends string, P extends z.ZodTypeAny>(type: T, payload: P) =>
-  z.object({ type: z.literal(type), payload, ts: z.number().int().optional() });
-
-// --- клиент → сервер ---------------------------------------------------------
-
-export const clientEventSchema = z.discriminatedUnion('type', [
-  event('feed.enter', z.object({})),
-  event('match.request', z.object({ stake: positiveMinorSchema, targetUserId: uuid.optional() })),
-  event('match.accept', z.object({ matchId: uuid })),
-  event('match.decline', z.object({ matchId: uuid })),
-  event('round.seat', z.object({ roundId: uuid, seat })),
-  event('round.commit', z.object({ roundId: uuid, commitHash: hex.length(64) })),
-  event(
-    'round.reveal',
-    z.object({ roundId: uuid, number: z.number().int().min(0), salt: hex.min(32) }),
-  ),
-  event(
-    'shift.decide',
-    z.object({
-      sessionId: uuid,
-      choice: z.enum(['next', 'stay', 'opposite', 'exit']),
-      newStake: positiveMinorSchema.optional(),
-    }),
-  ),
-  event('session.leave', z.object({ sessionId: uuid })),
+export const clientMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('auth'), token: z.string().min(10) }),
+  z.object({ type: z.literal('ping') }),
 ]);
-export type ClientEvent = z.infer<typeof clientEventSchema>;
+export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
-// --- сервер → клиент ---------------------------------------------------------
+const balances = z.object({ main: minorSchema, hold: minorSchema, pendingWithdrawal: minorSchema });
+
+export const sessionViewSchema = z.object({
+  id: z.string().uuid(),
+  dealerId: z.string().uuid(),
+  playerId: z.string().uuid(),
+  seat: z.union([z.literal(0), z.literal(1)]),
+  currency: currencySchema,
+  /** Ставка S сессии. */
+  stake: minorSchema,
+  /** Депозит сессии D = S × roundsBuffer у каждого участника. */
+  deposit: minorSchema,
+  /** Сколько осталось в депозите у смотрящего / у соперника. */
+  holdLeft: minorSchema,
+  opponentHoldLeft: minorSchema,
+  status: z.enum(['active', 'ended']),
+  endReason: z.string().nullable(),
+  startedAt: z.string(),
+  endsAt: z.string(),
+  /** Соперник не в сети с этого момента (переподключение — до reconnectGraceSec). */
+  opponentOfflineAt: z.string().nullable(),
+});
+export type SessionView = z.infer<typeof sessionViewSchema>;
+export type SessionViewWire = z.input<typeof sessionViewSchema>;
 
 export const serverEventSchema = z.discriminatedUnion('type', [
-  event(
-    'match.found',
-    z.object({
-      matchId: uuid,
-      opponentId: uuid,
-      stake: minorSchema,
-      acceptDeadline: z.number().int(),
-    }),
-  ),
-  event('match.cancelled', z.object({ matchId: uuid, reason: z.string() })),
-  event(
-    'session.started',
-    z.object({
-      sessionId: uuid,
-      roomId: z.string(),
-      deposit: nonNegativeMinorSchema,
-      endsAt: z.number().int(),
-    }),
-  ),
-  event('session.ended', z.object({ sessionId: uuid, reason: z.string() })),
-  event(
-    'round.started',
-    z.object({ roundId: uuid, sessionId: uuid, seatDeadline: z.number().int() }),
-  ),
-  event(
-    'round.result',
-    z.object({
-      roundId: uuid,
-      sum: z.number().int(),
-      winnerSeat: seat,
-      prize: nonNegativeMinorSchema,
-      /** Комиссия площадки с выигрыша (сбор со ставки удерживается при коммите). */
-      fee: nonNegativeMinorSchema,
-      signature: z.string(),
-    }),
-  ),
-  event('shift.started', z.object({ sessionId: uuid, deadline: z.number().int() })),
-  event('wallet.updated', z.object({ main: minorSchema, hold: nonNegativeMinorSchema })),
-  event('moderation.stop', z.object({ sessionId: uuid, reason: z.string() })),
-  event('error', z.object({ code: z.string(), message: z.string() })),
+  z.object({ type: z.literal('ready'), userId: z.string().uuid() }),
+  z.object({ type: z.literal('pong') }),
+  z.object({ type: z.literal('wallet.updated'), USDT: balances, FUN: balances }),
+  z.object({ type: z.literal('round.updated'), round: roundViewSchema }),
+  z.object({ type: z.literal('session.updated'), session: sessionViewSchema }),
+  /** Состав столов в эфире изменился — перечитать GET /dealers. */
+  z.object({ type: z.literal('dealers.updated') }),
+  z.object({ type: z.literal('error'), code: z.string(), message: z.string() }),
 ]);
 export type ServerEvent = z.infer<typeof serverEventSchema>;
-/** Форма события до парсинга (суммы — строки). Её и шлём в сокет. */
 export type ServerEventWire = z.input<typeof serverEventSchema>;

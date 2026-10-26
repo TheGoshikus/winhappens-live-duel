@@ -10,10 +10,18 @@ export interface PaymentsDeps {
   wallet: WalletService;
   eligibility: Pick<Eligibility, 'canDeposit' | 'canWithdraw'>;
   subject: (userId: string, ipCountry: string | null) => Promise<EligibilitySubject>;
+  /** Баланс изменился (WS wallet.updated). */
+  onWallet?: (userId: string) => Promise<void>;
 }
 
 /** Пополнение и вывод USDT через шлюз; события шлюза → проводки ledger (payments.md §5). */
-export function createPaymentsService({ gateway, wallet, eligibility, subject }: PaymentsDeps) {
+export function createPaymentsService({
+  gateway,
+  wallet,
+  eligibility,
+  subject,
+  onWallet,
+}: PaymentsDeps) {
   return {
     async deposit(
       userId: string,
@@ -61,7 +69,7 @@ export function createPaymentsService({ gateway, wallet, eligibility, subject }:
             intentId: e.intentId,
             amount: e.ledgerAmount,
           });
-          return;
+          break;
         case 'payout.succeeded':
         case 'payout.failed':
           await wallet.completeWithdrawal({
@@ -70,10 +78,11 @@ export function createPaymentsService({ gateway, wallet, eligibility, subject }:
             amount: e.amount,
             succeeded: e.type === 'payout.succeeded',
           });
-          return;
+          break;
         case 'deposit.failed':
           return;
       }
+      await onWallet?.(e.userId).catch(() => {});
     },
   };
 }

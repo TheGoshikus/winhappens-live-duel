@@ -23,6 +23,8 @@ export const liveDealerSchema = z.object({
   currency: currencySchema,
   minStake: minorSchema,
   room: z.string(),
+  /** Идёт сессия с другим игроком. */
+  busy: z.boolean(),
 });
 export type LiveDealer = z.infer<typeof liveDealerSchema>;
 export const liveDealersResponseSchema = z.object({ dealers: z.array(liveDealerSchema) });
