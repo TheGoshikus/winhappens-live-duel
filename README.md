@@ -45,4 +45,12 @@ pnpm dev          # docker compose (postgres: core + payments, redis, livekit) +
 | `POST /kyc/start`        | начать KYC (только registered)                               |
 | `POST /dev/kyc/complete` | mock: завершить KYC (вне production)                         |
 
+### API кошелька (этап 2)
+
+| Метод                                                | Назначение                                                                   |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `GET /wallet`                                        | балансы USDT и FUN: `main`, `hold`, `pendingWithdrawal` (строки minor units) |
+| `GET /wallet/history?currency=USDT&limit=50&before=` | проводки основного счёта, новые сверху                                       |
+| `POST /dev/wallet/deposit`                           | mock `deposit.succeeded` до появления шлюза (вне production)                 |
+
 Страна по IP берётся из заголовка доверенного прокси (`GEO_COUNTRY_HEADER`, по умолчанию `cf-ipcountry`). В разработке OTP-код пишется в лог core.

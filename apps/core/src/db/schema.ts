@@ -88,6 +88,44 @@ export interface DeviceLinkTable {
   last_seen_at: Timestamp;
 }
 
+export type AccountType =
+  | 'main'
+  | 'session_hold'
+  | 'pending_withdrawal'
+  | 'round_pot'
+  | 'house_rake'
+  | 'gateway_clearing'
+  | 'fun_issuance';
+
+export interface WalletAccountTable {
+  id: string;
+  user_id: string | null;
+  type: AccountType;
+  currency: 'USDT' | 'FUN';
+  allow_negative: Generated<boolean>;
+  /** Кэш суммы проводок; меняется только в той же транзакции, что и проводки. */
+  balance: ColumnType<bigint, bigint | undefined, bigint>;
+  created_at: CreatedAt;
+}
+
+export interface LedgerTxTable {
+  id: string;
+  kind: string;
+  ref_type: string | null;
+  ref_id: string | null;
+  idempotency_key: string | null;
+  created_at: CreatedAt;
+}
+
+export interface LedgerEntryTable {
+  id: Generated<bigint>;
+  tx_id: string;
+  account_id: string;
+  amount: bigint;
+  balance_after: bigint;
+  created_at: CreatedAt;
+}
+
 export interface Database {
   users: UsersTable;
   user_contact: UserContactTable;
@@ -97,6 +135,9 @@ export interface Database {
   player_settings: PlayerSettingsTable;
   user_block: UserBlockTable;
   device_link: DeviceLinkTable;
+  wallet_account: WalletAccountTable;
+  ledger_tx: LedgerTxTable;
+  ledger_entry: LedgerEntryTable;
 }
 
 export type User = Selectable<UsersTable>;

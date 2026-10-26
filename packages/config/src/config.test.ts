@@ -30,9 +30,15 @@ describe('config', () => {
   });
 
   it('читает игровые параметры из GAME_*', () => {
-    expect(gameEnvKeys.rakeBps).toBe('GAME_RAKE_BPS');
-    const { game } = loadCoreConfig({ ...coreEnv, GAME_RAKE_BPS: '250', GAME_ROUNDS_BUFFER: '8' });
-    expect(game.rakeBps).toBe(250);
+    expect(gameEnvKeys.winFeeBps).toBe('GAME_WIN_FEE_BPS');
+    const { game } = loadCoreConfig({
+      ...coreEnv,
+      GAME_WIN_FEE_BPS: '250',
+      GAME_ROUNDS_BUFFER: '8',
+    });
+    expect(game.winFeeBps).toBe(250);
+    expect(game.stakeFeeBps).toBe(229);
+    expect(game.reciprocityWinFeeBps).toBe(2_000);
     expect(game.roundsBuffer).toBe(8);
   });
 
@@ -40,12 +46,14 @@ describe('config', () => {
     const bad = {
       ...coreEnv,
       REDIS_URL: 'nope',
-      GAME_RAKE_BPS: '20000',
+      GAME_WIN_FEE_BPS: '20000',
       GAME_MIN_STAKE_USDT: '0',
     };
     expect(() => loadCoreConfig(bad)).toThrow(ConfigError);
     expect(() => loadCoreConfig(bad)).toThrow(/REDIS_URL[\s\S]*/);
-    expect(() => loadCoreConfig({ ...coreEnv, GAME_RAKE_BPS: '20000' })).toThrow(/rakeBps/);
+    expect(() => loadCoreConfig({ ...coreEnv, GAME_STAKE_FEE_BPS: '20000' })).toThrow(
+      /stakeFeeBps/,
+    );
   });
 
   it('min ставка не больше max', () => {

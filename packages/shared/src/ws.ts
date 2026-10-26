@@ -75,7 +75,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
       sum: z.number().int(),
       winnerSeat: seat,
       prize: nonNegativeMinorSchema,
-      rake: nonNegativeMinorSchema,
+      /** Комиссия площадки с выигрыша (сбор со ставки удерживается при коммите). */
+      fee: nonNegativeMinorSchema,
       signature: z.string(),
     }),
   ),

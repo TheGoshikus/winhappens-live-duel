@@ -2,7 +2,7 @@ import { loadCoreConfig } from '@winhappens/config';
 import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
 import { createDb, migrateToLatest } from './db/index.js';
-import { createIdentityModule } from './wiring.js';
+import { createIdentityModule, createWalletModule } from './wiring.js';
 
 const config = loadCoreConfig();
 const { db, pool } = createDb(config.env.CORE_DATABASE_URL);
@@ -19,6 +19,7 @@ const app = buildApp(
       redis: async () => void (await redis.ping()),
     },
     identity: createIdentityModule(db, config, { log: (m) => app.log.info(m) }),
+    wallet: createWalletModule(db, config),
   },
   { logger: { level: config.env.LOG_LEVEL } },
 );
