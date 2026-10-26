@@ -4,14 +4,18 @@ import { z } from 'zod';
  * Игровые параметры (§14 ТЗ). Значения по умолчанию взяты из architecture.md / roadmap.md;
  * то, чего там нет, помечено «уточнить по §14» — сверить, когда docs/spec.md будет в репозитории.
  *
- * Переопределяются переменными окружения GAME_<UPPER_SNAKE>, например GAME_RAKE_BPS=500.
+ * Переопределяются переменными окружения GAME_<UPPER_SNAKE>, например GAME_WIN_FEE_BPS=1000.
  */
 const int = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
 export const gameConfigSchema = z
   .object({
-    /** Комиссия дома с банка раунда 2S, в б.п. (500 = 5%). Уточнить по §14. */
-    rakeBps: int(0, 10_000).default(500),
+    /** Сбор со ставки каждого участника при любом исходе, в б.п. (229 = 2,29%). */
+    stakeFeeBps: int(0, 10_000).default(229),
+    /** Комиссия с выигрыша победителя, в б.п. (1000 = 10%). */
+    winFeeBps: int(0, 10_000).default(1_000),
+    /** Комиссия с выигрыша в режиме взаимности (2000 = 20%). */
+    reciprocityWinFeeBps: int(0, 10_000).default(2_000),
     /** D_min = S × roundsBuffer (roadmap, этап 5). Уточнить по §14. */
     roundsBuffer: int(1, 1000).default(5),
     /** Длительность сессии, с (architecture §6.3). */

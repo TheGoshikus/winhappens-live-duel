@@ -53,7 +53,9 @@ export function createWalletModule(db: Db, config: CoreConfig): WalletRoutesDeps
   return {
     wallet: createWalletService(db, {
       funStartingBalance: config.game.funStartingBalance,
-      rakeBps: config.game.rakeBps,
+      stakeFeeBps: config.game.stakeFeeBps,
+      winFeeBps: config.game.winFeeBps,
+      reciprocityWinFeeBps: config.game.reciprocityWinFeeBps,
     }),
     devRoutes: config.env.NODE_ENV !== 'production',
   };

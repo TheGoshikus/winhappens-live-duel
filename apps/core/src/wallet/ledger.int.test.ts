@@ -13,7 +13,12 @@ let wallet: WalletService;
 
 beforeAll(async () => {
   ({ db, stop } = await startTestDb());
-  wallet = createWalletService(db, { funStartingBalance: 100_000n, rakeBps: 500 });
+  wallet = createWalletService(db, {
+    funStartingBalance: 100_000n,
+    stakeFeeBps: 229,
+    winFeeBps: 1_000,
+    reciprocityWinFeeBps: 2_000,
+  });
 });
 afterAll(async () => stop?.());
 
@@ -146,15 +151,62 @@ describe('операции', () => {
     await assertInvariants();
   });
 
-  it('полный круг сессии: hold → ставки → расчёт с rake → release', async () => {
+  it('полный круг сессии: hold → ставки со сбором 2,29% → расчёт с 10% с выигрыша → release', async () => {
     const [a, b] = [await newUser(), await newUser()];
     for (const u of [a, b])
       await wallet.creditDeposit({ userId: u, intentId: uuidv7(), amount: 10_000_000n });
     const sessionId = uuidv7();
     const S = 1_000_000n;
+    const FEE = 22_900n; // 2,29% от 1 USDT
     for (const u of [a, b])
       await wallet.hold({ userId: u, currency: 'USDT', amount: 5n * S, sessionId });
 
+    const roundId = uuidv7();
+    for (const u of [a, b])
+      expect(
+        (await wallet.commitStake({ userId: u, currency: 'USDT', amount: S, roundId })).fee,
+      ).toBe(FEE);
+    const settled = await wallet.settleRound({
+      currency: 'USDT',
+      roundId,
+      pot: 2n * S,
+      winnerStake: S,
+      winnerUserId: a,
+    });
+    expect(settled).toMatchObject({ prize: 1_900_000n, winFee: 100_000n, replayed: false });
+    expect(
+      (
+        await wallet.settleRound({
+          currency: 'USDT',
+          roundId,
+          pot: 2n * S,
+          winnerStake: S,
+          winnerUserId: b,
+        })
+      ).replayed,
+    ).toBe(true);
+
+    expect(await balance(a)).toMatchObject({ main: 5_000_000n + 1_900_000n, hold: 4n * S - FEE });
+    expect(await balance(b)).toMatchObject({ main: 5_000_000n, hold: 4n * S - FEE });
+
+    expect((await wallet.release({ userId: a, currency: 'USDT', sessionId })).released).toBe(
+      4n * S - FEE,
+    );
+    expect((await wallet.release({ userId: a, currency: 'USDT', sessionId })).released).toBe(0n);
+    await wallet.release({ userId: b, currency: 'USDT', sessionId });
+    // Победитель: +1 − 0,1 − 0,0229 = +0,8771; проигравший: −1 − 0,0229.
+    expect(await balance(a)).toMatchObject({ main: 10_877_100n, hold: 0n });
+    expect(await balance(b)).toMatchObject({ main: 8_977_100n, hold: 0n });
+    await assertInvariants();
+  });
+
+  it('взаимность: 20% с выигрыша; отмена раунда возвращает ставку со сбором', async () => {
+    const [a, b] = [await newUser(), await newUser()];
+    const S = 10_000_000n;
+    for (const u of [a, b]) {
+      await wallet.creditDeposit({ userId: u, intentId: uuidv7(), amount: 30_000_000n });
+      await wallet.hold({ userId: u, currency: 'USDT', amount: 30_000_000n, sessionId: `s-${a}` });
+    }
     const roundId = uuidv7();
     for (const u of [a, b])
       await wallet.commitStake({ userId: u, currency: 'USDT', amount: S, roundId });
@@ -162,24 +214,17 @@ describe('операции', () => {
       currency: 'USDT',
       roundId,
       pot: 2n * S,
-      winnerUserId: a,
+      winnerStake: S,
+      winnerUserId: b,
+      reciprocity: true,
     });
-    expect(settled).toMatchObject({ prize: 1_900_000n, rake: 100_000n, replayed: false });
-    expect(
-      (await wallet.settleRound({ currency: 'USDT', roundId, pot: 2n * S, winnerUserId: b }))
-        .replayed,
-    ).toBe(true);
+    expect(settled).toMatchObject({ prize: 18_000_000n, winFee: 2_000_000n });
+    expect(await balance(b)).toMatchObject({ main: 18_000_000n, hold: 20_000_000n - 229_000n });
 
-    expect(await balance(a)).toMatchObject({ main: 5_000_000n + 1_900_000n, hold: 4n * S });
-    expect(await balance(b)).toMatchObject({ main: 5_000_000n, hold: 4n * S });
-
-    expect((await wallet.release({ userId: a, currency: 'USDT', sessionId })).released).toBe(
-      4n * S,
-    );
-    expect((await wallet.release({ userId: a, currency: 'USDT', sessionId })).released).toBe(0n);
-    await wallet.release({ userId: b, currency: 'USDT', sessionId });
-    expect(await balance(a)).toMatchObject({ main: 10_900_000n, hold: 0n });
-    expect(await balance(b)).toMatchObject({ main: 9_000_000n, hold: 0n });
+    const cancelled = uuidv7();
+    await wallet.commitStake({ userId: a, currency: 'USDT', amount: S, roundId: cancelled });
+    await wallet.refundStake({ userId: a, currency: 'USDT', amount: S, roundId: cancelled });
+    expect((await balance(a)).hold).toBe(20_000_000n - 229_000n);
     await assertInvariants();
   });
 

@@ -1,4 +1,4 @@
-import { splitPot, type Currency, type Minor } from '@winhappens/shared';
+import { settlePot, stakeFee, type Currency, type Minor } from '@winhappens/shared';
 import { uuidv7 } from 'uuidv7';
 import type { Db } from '../db/index.js';
 import type { AccountType } from '../db/schema.js';
@@ -9,7 +9,11 @@ type SystemAccountType = Exclude<AccountType, UserAccountType>;
 
 export interface WalletSettings {
   funStartingBalance: Minor;
-  rakeBps: number;
+  /** Сбор со ставки каждого участника (229 = 2,29%). */
+  stakeFeeBps: number;
+  /** Комиссия с выигрыша: обычный раунд и режим взаимности. */
+  winFeeBps: number;
+  reciprocityWinFeeBps: number;
 }
 
 export interface Balances {
@@ -153,55 +157,78 @@ export function createWalletService(db: Db, settings: WalletSettings) {
       });
     },
 
-    /** Ставка S на коммите: session_hold → round_pot. */
+    /**
+     * Ставка S на коммите: S → round_pot, сбор со ставки → house_rake. Оба списываются с
+     * session_hold, поэтому депозит сессии должен покрывать ставку вместе со сбором.
+     */
     commitStake(
       q: { userId: string; currency: Currency; amount: Minor; roundId: string },
       outer?: Db,
     ) {
-      return tx(outer, async (trx) =>
-        transfer(
+      const fee = stakeFee(q.amount, settings.stakeFeeBps);
+      return tx(outer, async (trx) => {
+        const r = await transfer(
           trx,
           'round.stake',
           `stake:${q.roundId}:${q.userId}`,
           { type: 'round', id: q.roundId },
-          move(
-            await userAccount(trx, q.userId, 'session_hold', q.currency),
-            await systemAccount(trx, 'round_pot', q.currency),
-            q.amount,
-          ),
-        ),
-      );
+          [
+            {
+              accountId: await userAccount(trx, q.userId, 'session_hold', q.currency),
+              amount: -(q.amount + fee),
+            },
+            { accountId: await systemAccount(trx, 'round_pot', q.currency), amount: q.amount },
+            { accountId: await systemAccount(trx, 'house_rake', q.currency), amount: fee },
+          ],
+        );
+        return { ...r, fee };
+      });
     },
 
-    /** Возврат ставки из банка (раунд отменён до расчёта): round_pot → session_hold. */
+    /** Раунд отменён до расчёта: ставка и сбор возвращаются в session_hold. */
     refundStake(
       q: { userId: string; currency: Currency; amount: Minor; roundId: string },
       outer?: Db,
     ) {
+      const fee = stakeFee(q.amount, settings.stakeFeeBps);
       return tx(outer, async (trx) =>
         transfer(
           trx,
           'round.refund',
           `refund:${q.roundId}:${q.userId}`,
           { type: 'round', id: q.roundId },
-          move(
-            await systemAccount(trx, 'round_pot', q.currency),
-            await userAccount(trx, q.userId, 'session_hold', q.currency),
-            q.amount,
-          ),
+          [
+            { accountId: await systemAccount(trx, 'round_pot', q.currency), amount: -q.amount },
+            { accountId: await systemAccount(trx, 'house_rake', q.currency), amount: -fee },
+            {
+              accountId: await userAccount(trx, q.userId, 'session_hold', q.currency),
+              amount: q.amount + fee,
+            },
+          ],
         ),
       );
     },
 
     /**
-     * Расчёт раунда: банк 2S → победителю 2S × (1 − rake) на main, rake → house_rake (architecture §5).
-     * Победитель получает приз сразу на main, как на схеме потока денег.
+     * Расчёт раунда: победитель получает банк минус комиссия с выигрыша (10%, во взаимности 20%)
+     * сразу на main; комиссия → house_rake (docs/decisions.md).
      */
     settleRound(
-      q: { currency: Currency; roundId: string; pot: Minor; winnerUserId: string },
+      q: {
+        currency: Currency;
+        roundId: string;
+        pot: Minor;
+        winnerStake: Minor;
+        winnerUserId: string;
+        reciprocity?: boolean;
+      },
       outer?: Db,
     ) {
-      const { prize, rake } = splitPot(q.pot, settings.rakeBps);
+      const { prize, winFee } = settlePot(
+        q.pot,
+        q.winnerStake,
+        q.reciprocity ? settings.reciprocityWinFeeBps : settings.winFeeBps,
+      );
       return tx(outer, async (trx) => {
         const potId = await systemAccount(trx, 'round_pot', q.currency);
         const r = await transfer(
@@ -215,10 +242,10 @@ export function createWalletService(db: Db, settings: WalletSettings) {
               accountId: await userAccount(trx, q.winnerUserId, 'main', q.currency),
               amount: prize,
             },
-            { accountId: await systemAccount(trx, 'house_rake', q.currency), amount: rake },
+            { accountId: await systemAccount(trx, 'house_rake', q.currency), amount: winFee },
           ],
         );
-        return { ...r, prize, rake };
+        return { ...r, prize, winFee };
       });
     },
 

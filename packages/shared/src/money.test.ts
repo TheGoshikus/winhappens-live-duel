@@ -1,15 +1,45 @@
 import { describe, expect, it } from 'vitest';
-import { bpsOf, formatDecimal, minorSchema, MoneyError, parseDecimal, splitPot } from './money.js';
+import {
+  bpsOf,
+  formatDecimal,
+  minorSchema,
+  MoneyError,
+  parseDecimal,
+  settlePot,
+  stakeFee,
+} from './money.js';
 
 describe('money', () => {
-  it('splitPot сохраняет сумму и округляет rake вниз', () => {
-    for (const pot of [0n, 1n, 199n, 200n, 12_345n, 10n ** 18n]) {
-      for (const bps of [0, 1, 500, 999, 10_000]) {
-        const { prize, rake } = splitPot(pot, bps);
-        expect(prize + rake).toBe(pot);
-        expect(rake).toBe((pot * BigInt(bps)) / 10_000n);
+  it('settlePot: комиссия только с выигрыша, части в сумме дают банк', () => {
+    // Ставки по 10 USDT: выигрыш 10, комиссия 10% → приз 19.
+    expect(settlePot(20_000_000n, 10_000_000n, 1_000)).toEqual({
+      prize: 19_000_000n,
+      winFee: 1_000_000n,
+    });
+    // Взаимность — 20%.
+    expect(settlePot(20_000_000n, 10_000_000n, 2_000)).toEqual({
+      prize: 18_000_000n,
+      winFee: 2_000_000n,
+    });
+    for (const [pot, stake] of [
+      [0n, 0n],
+      [3n, 1n],
+      [199n, 99n],
+      [10n ** 18n, 4n * 10n ** 17n],
+    ] as const) {
+      for (const bps of [0, 1, 1_000, 2_000, 10_000]) {
+        const { prize, winFee } = settlePot(pot, stake, bps);
+        expect(prize + winFee).toBe(pot);
+        expect(winFee).toBe(((pot - stake) * BigInt(bps)) / 10_000n);
       }
     }
+    expect(() => settlePot(10n, 11n, 1_000)).toThrow(MoneyError);
+  });
+
+  it('stakeFee: 2,29% со ставки, округление вниз', () => {
+    expect(stakeFee(10_000_000n, 229)).toBe(229_000n);
+    expect(stakeFee(1_000_000n, 229)).toBe(22_900n);
+    expect(stakeFee(100n, 229)).toBe(2n);
   });
 
   it('bpsOf отклоняет некорректные доли', () => {

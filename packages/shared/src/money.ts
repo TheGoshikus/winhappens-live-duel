@@ -33,10 +33,22 @@ export function bpsOf(amount: Minor, bps: number): Minor {
   return (amount * BigInt(bps)) / BPS_DENOMINATOR;
 }
 
-/** Делит банк раунда 2S: приз победителю и rake. Сумма частей всегда равна банку. */
-export function splitPot(pot: Minor, rakeBps: number): { prize: Minor; rake: Minor } {
-  const rake = bpsOf(pot, rakeBps);
-  return { prize: pot - rake, rake };
+/** Сбор со ставки каждого участника, при любом исходе (docs/decisions.md). */
+export const stakeFee = (stake: Minor, stakeFeeBps: number): Minor => bpsOf(stake, stakeFeeBps);
+
+/**
+ * Расчёт банка: победитель забирает банк минус комиссия с выигрыша. Выигрыш — банк без
+ * собственной ставки победителя (при равных ставках — ставка соперника).
+ */
+export function settlePot(
+  pot: Minor,
+  winnerStake: Minor,
+  winFeeBps: number,
+): { prize: Minor; winFee: Minor } {
+  const winnings = pot - winnerStake;
+  if (winnerStake < 0n || winnings < 0n) throw new MoneyError('winner stake exceeds pot');
+  const winFee = bpsOf(winnings, winFeeBps);
+  return { prize: pot - winFee, winFee };
 }
 
 /** Парсинг десятичной строки ("12.34") в minor units без float. */
