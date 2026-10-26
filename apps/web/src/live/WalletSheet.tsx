@@ -47,7 +47,7 @@ export function WalletSheet({
       const parsed = walletResponseSchema.parse(w);
       setMe(m);
       setWallet(parsed);
-      onBalance(Number(parsed.FUN.main));
+      onBalance(Number(parsed.FUN.main + parsed.FUN.hold));
     } catch (e) {
       setError(explain(e));
     }

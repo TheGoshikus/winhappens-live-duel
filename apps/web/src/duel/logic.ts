@@ -76,6 +76,8 @@ export type Action =
   /** Живой раунд отменён сервером: ставка и сбор вернулись. */
   | { type: 'abort'; dealer: number; text: string; now: number }
   | { type: 'setBalance'; cents: number }
+  /** Сообщение на сцене стола (конец сессии и т.п.). */
+  | { type: 'notice'; dealer: number; text: string }
   /** Прогресс с крупье с сервера: сыгранные раунды и снятые предметы. */
   | { type: 'progress'; dealer: number; rounds: number; removed: ItemId[] }
   | { type: 'nextRound'; now: number }
@@ -90,6 +92,8 @@ export interface LiveTable {
   name: string;
   scene: SceneId;
   min: number;
+  /** Занята сессией с другим игроком. */
+  busy?: boolean;
 }
 
 /** Игрок всегда ЧЁТ (место 0): побеждает при чётной сумме. */
@@ -191,8 +195,8 @@ function syncLive(s: DuelState, live: LiveTable[], now: number): DuelState {
       min: l.min,
       live: true,
     };
-    if (i === undefined) dealers.push(row);
-    else dealers[i] = { ...row, busy: false };
+    if (i === undefined) dealers.push({ ...row, busy: l.busy ?? false });
+    else dealers[i] = { ...row, busy: l.busy ?? false };
   }
   let next: DuelState = { ...s, dealers };
   const firstLive = dealers.findIndex((d) => d.live && !d.busy);
@@ -335,6 +339,8 @@ function reduce(s: DuelState, a: Action): DuelState {
     }
     case 'setBalance':
       return { ...s, balance: a.cents };
+    case 'notice':
+      return { ...s, notice: { dealer: a.dealer, text: a.text } };
     case 'progress': {
       const r = roundOf(s, a.dealer);
       let next = {

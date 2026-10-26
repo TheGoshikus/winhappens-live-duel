@@ -113,3 +113,9 @@ export async function api<T>(
 }
 
 export const currentUserId = () => (current ?? load())?.userId ?? null;
+
+/** Действующий access-токен (обновляется при необходимости) — для авторизации WS. */
+export async function accessToken(): Promise<string> {
+  await api('/me');
+  return (current ?? load())!.accessToken;
+}

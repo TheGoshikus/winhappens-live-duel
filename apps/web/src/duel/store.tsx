@@ -9,9 +9,15 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { roundViewSchema, walletResponseSchema } from '@winhappens/shared';
+import {
+  roundViewSchema,
+  sessionViewSchema,
+  walletResponseSchema,
+  type SessionView,
+} from '@winhappens/shared';
 import { api, ApiError } from '../live/api';
 import { playRound } from '../live/rounds';
+import { connectRealtime, onEvent } from '../live/socket';
 import { DONE_AFTER_MS, REVEAL_AFTER_MS } from './data';
 import { CENT, initialState, reducer, roundOf, type Action, type DuelState } from './logic';
 
@@ -22,14 +28,36 @@ interface DuelCtx {
   confirm: () => void;
   /** Подтянуть баланс FUN из кошелька core. */
   syncBalance: () => Promise<void>;
+  /** Активные сессии игрока по id крупье (живые столы). */
+  sessions: ReadonlyMap<string, SessionView>;
   now: number;
 }
 
 const Ctx = createContext<DuelCtx | null>(null);
 
+/** Причина конца сессии → сообщение на сцене. */
+const SESSION_END_TEXT: Record<string, string> = {
+  time_over: 'СЕССИЯ ЗАВЕРШЕНА · 5:00',
+  deposit_exhausted: 'ДЕПОЗИТ СЕССИИ ИСЧЕРПАН',
+  dealer_left: 'КРУПЬЕ ВЫШЛА ИЗ-ЗА СТОЛА',
+  dealer_disconnected: 'КРУПЬЕ ПОТЕРЯЛА СВЯЗЬ',
+  player_disconnected: 'СВЯЗЬ ПОТЕРЯНА · СЕССИЯ ЗАКРЫТА',
+};
+
+const ERROR_TEXT: Record<string, string> = {
+  insufficient_funds: 'НЕ ХВАТАЕТ НА ДЕПОЗИТ СЕССИИ',
+  dealer_busy: 'КРУПЬЕ ЗАНЯТА ДРУГИМ ИГРОКОМ',
+  dealer_insufficient_funds: 'У КРУПЬЕ НЕ ХВАТАЕТ НА ДЕПОЗИТ',
+  session_deposit_exhausted: 'ДЕПОЗИТ СЕССИИ ИСЧЕРПАН',
+  dealer_not_live: 'КРУПЬЕ НЕ В ЭФИРЕ',
+};
+
 export function DuelProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => initialState(Date.now()));
   const [now, setNow] = useState(() => Date.now());
+  const [sessions, setSessions] = useState<ReadonlyMap<string, SessionView>>(new Map());
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
   const timers = useRef<number[]>([]);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -42,28 +70,86 @@ export function DuelProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const putSession = useCallback((s: SessionView) => {
+    setSessions((prev) => {
+      const next = new Map(prev);
+      if (s.status === 'active') next.set(s.dealerId, s);
+      else next.delete(s.dealerId);
+      return next;
+    });
+  }, []);
+
+  // Реальное время: присутствие в сети (сессия ждёт переподключения 30 с) и события сервера.
+  useEffect(() => {
+    connectRealtime();
+    api<{ sessions: unknown[] }>('/sessions/active')
+      .then(({ sessions: list }) => list.map((x) => sessionViewSchema.parse(x)).forEach(putSession))
+      .catch(() => {});
+    const offWallet = onEvent('wallet.updated', (e) =>
+      // Баланс = основной счёт + депозиты сессий: деньги игрока, пока сессия идёт.
+      dispatch({ type: 'setBalance', cents: Number(e.FUN.main + e.FUN.hold) }),
+    );
+    const offSession = onEvent('session.updated', (e) => {
+      const s = e.session;
+      if (s.seat !== 0) return;
+      putSession(s);
+      if (s.status === 'ended' && s.endReason && s.endReason !== 'player_left') {
+        const dealer = stateRef.current.dealers.findIndex((d) => d.id === s.dealerId);
+        const text = SESSION_END_TEXT[s.endReason];
+        if (dealer >= 0 && text) dispatch({ type: 'notice', dealer, text });
+      }
+    });
+    return () => {
+      offWallet();
+      offSession();
+    };
+  }, [putSession]);
+
   /** Баланс FUN с сервера (живая игра идёт на реальном кошельке). */
   const syncBalance = useCallback(async () => {
     try {
       const w = walletResponseSchema.parse(await api('/wallet'));
-      dispatch({ type: 'setBalance', cents: Number(w.FUN.main) });
+      dispatch({ type: 'setBalance', cents: Number(w.FUN.main + w.FUN.hold) });
     } catch {
       // core недоступен — остаёмся на локальном балансе
     }
   }, []);
 
-  /** Раунд с живой крупье: сервер ведёт commit–reveal и деньги, клиент только показывает. */
+  /**
+   * Сессия с крупье под текущую ставку: при первой ставке — открыть (депозит D = S × 5),
+   * при смене ставки — закрыть прежнюю и открыть новую.
+   */
+  const ensureSession = useCallback(
+    async (dealerId: string, stake: bigint, item: boolean) => {
+      const cur = sessionsRef.current.get(dealerId);
+      if (cur && (item || cur.stake === stake)) return cur;
+      if (cur)
+        putSession(
+          sessionViewSchema.parse(await api(`/sessions/${cur.id}/leave`, { method: 'POST' })),
+        );
+      const s = sessionViewSchema.parse(
+        await api('/sessions', { body: { dealerId, stake: stake.toString() } }),
+      );
+      putSession(s);
+      return s;
+    },
+    [putSession],
+  );
+
+  /** Раунд с живой крупье: сервер ведёт сессию, commit–reveal и деньги, клиент показывает. */
   const confirmLive = useCallback(
     async (s: DuelState) => {
       const dealer = s.dealer;
       const table = s.dealers[dealer]!;
       const pick = roundOf(s, dealer).pick!;
       const item = s.mode[dealer] === 'items' ? s.item : null;
+      const stake = BigInt(s.stake * CENT);
       dispatch({ type: 'confirm', now: Date.now() });
       try {
+        await ensureSession(table.id, stake, item !== null);
         const created = roundViewSchema.parse(
           await api('/rounds', {
-            body: { dealerId: table.id, stake: String(s.stake * CENT), ...(item ? { item } : {}) },
+            body: { dealerId: table.id, stake: stake.toString(), ...(item ? { item } : {}) },
           }),
         );
         const r = await playRound(created.id, pick, () => {});
@@ -81,15 +167,12 @@ export function DuelProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'finish', dealer, won: res.winnerSeat === 0 });
         }
       } catch (e) {
-        const text =
-          e instanceof ApiError && e.code === 'insufficient_funds'
-            ? 'НЕ ХВАТАЕТ ФИШЕК'
-            : 'РАУНД НЕ СОСТОЯЛСЯ';
+        const text = (e instanceof ApiError && ERROR_TEXT[e.code]) || 'РАУНД НЕ СОСТОЯЛСЯ';
         dispatch({ type: 'abort', dealer, text, now: Date.now() });
       }
       await syncBalance();
     },
-    [syncBalance],
+    [ensureSession, syncBalance],
   );
 
   const confirm = useCallback(() => {
@@ -111,8 +194,8 @@ export function DuelProvider({ children }: { children: ReactNode }) {
   }, [confirmLive]);
 
   const value = useMemo(
-    () => ({ state, dispatch, confirm, syncBalance, now }),
-    [state, confirm, syncBalance, now],
+    () => ({ state, dispatch, confirm, syncBalance, sessions, now }),
+    [state, confirm, syncBalance, sessions, now],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

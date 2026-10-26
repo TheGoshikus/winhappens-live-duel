@@ -1,16 +1,25 @@
 import {
   dealerRoundsResponseSchema,
+  sessionViewSchema,
   walletResponseSchema,
   type RoundView,
+  type SessionView,
 } from '@winhappens/shared';
 import { useEffect, useRef, useState } from 'react';
 import { ITEMS } from '../duel/data';
 import { fmtMoney } from '../duel/logic';
 import { api } from './api';
 import { commitRound, randomSalt, revealRound } from './rounds';
+import { connectRealtime, onEvent } from './socket';
 import st from './studio.module.css';
 
-const POLL_MS = 700;
+/** Страховочный опрос: основной сигнал — события WS. */
+const POLL_MS = 5_000;
+
+const fmtLeft = (s: SessionView, now: number) => {
+  const left = Math.max(0, Math.floor((Date.parse(s.endsAt) - now) / 1000));
+  return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+};
 
 /**
  * Пульт крупье: входящий раунд → выбрать число (до дедлайна) → раскрытие автоматически.
@@ -19,14 +28,18 @@ const POLL_MS = 700;
 export function DealerRounds() {
   const [rounds, setRounds] = useState<RoundView[]>([]);
   const [balance, setBalance] = useState<bigint | null>(null);
+  const [session, setSession] = useState<SessionView | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const secrets = useRef(new Map<string, { number: number; salt: string }>());
   const busy = useRef(new Set<string>());
 
   useEffect(() => {
     let stop = false;
+    connectRealtime();
     const tick = async () => {
       try {
+        const { sessions } = (await api('/sessions/active')) as { sessions: unknown[] };
+        if (!stop) setSession(sessions.length ? sessionViewSchema.parse(sessions[0]) : null);
         const { rounds: list } = dealerRoundsResponseSchema.parse(await api('/dealer/rounds'));
         if (stop) return;
         setRounds(list);
@@ -41,16 +54,23 @@ export function DealerRounds() {
           }
         }
         const w = walletResponseSchema.parse(await api('/wallet'));
-        if (!stop) setBalance(w.FUN.main);
+        if (!stop) setBalance(w.FUN.main + w.FUN.hold);
       } catch {
         // временная ошибка сети — следующий тик повторит
       }
     };
     void tick();
+    const offs = [
+      onEvent('round.updated', () => void tick()),
+      onEvent('session.updated', () => void tick()),
+    ];
     const id = window.setInterval(tick, POLL_MS);
+    const clockId = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => {
       stop = true;
+      offs.forEach((off) => off());
       window.clearInterval(id);
+      window.clearInterval(clockId);
     };
   }, []);
 
@@ -81,7 +101,26 @@ export function DealerRounds() {
           <span style={{ fontFamily: 'var(--font-mono)' }}>◎ {fmtMoney(Number(balance))}</span>
         )}
       </div>
-      {!open && <p className={st.muted}>Ждём ставку игрока…</p>}
+      {session ? (
+        <div className={st.muted} style={{ color: '#fff', fontSize: 13 }} data-dealer-session>
+          Сессия с игроком · {fmtLeft(session, now)} · ваш депозит{' '}
+          {fmtMoney(Number(session.holdLeft))} · игрока {fmtMoney(Number(session.opponentHoldLeft))}
+          {session.opponentOfflineAt ? ' · игрок переподключается…' : ''}
+          <button
+            type="button"
+            className={st.opt}
+            style={{ marginLeft: 8, minHeight: 32 }}
+            onClick={() =>
+              void api(`/sessions/${session.id}/leave`, { method: 'POST' }).catch(() => {})
+            }
+          >
+            Завершить сессию
+          </button>
+        </div>
+      ) : (
+        <p className={st.muted}>Стол свободен — ждём игрока…</p>
+      )}
+      {session && !open && <p className={st.muted}>Ждём ставку игрока…</p>}
       {open && open.status === 'commit' && !open.committed.dealer && (
         <>
           <p className={st.muted} style={{ color: '#fff' }}>

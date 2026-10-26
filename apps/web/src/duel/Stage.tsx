@@ -2,7 +2,8 @@ import { useRef, type PointerEvent } from 'react';
 import { ROUNDS_TO_RECIPROCITY } from './data';
 import s from './duel.module.css';
 import { LIFT_TRANSITION, useLift } from './lift';
-import { badge, caption, fmtSec, roundOf, timerOf } from './logic';
+import type { SessionView } from '@winhappens/shared';
+import { badge, caption, fmtMoney, fmtSec, roundOf, timerOf } from './logic';
 import { useDuel } from './store';
 import { DealerVideo } from '../live/media';
 
@@ -14,6 +15,15 @@ const SIZES = {
   desktop: { center: 360, near: 190, far: 130, step: 330, gap: 40 },
 };
 const RING_LEN = 301.6;
+
+/** Таймер сессии и остаток депозита; соперник офлайн — ждём переподключения. */
+function sessionHint(s: SessionView, now: number): string {
+  if (s.opponentOfflineAt) return 'крупье переподключается…';
+  const left = Math.max(0, Math.floor((Date.parse(s.endsAt) - now) / 1000));
+  const mm = Math.floor(left / 60);
+  const ss = String(left % 60).padStart(2, '0');
+  return `сессия ${mm}:${ss} · депозит ${fmtMoney(Number(s.holdLeft))}`;
+}
 const BADGE_BG = { live: '#FFE14D', win: '#3DDC97', loss: '#FF6B81' } as const;
 
 interface StageProps {
@@ -23,11 +33,12 @@ interface StageProps {
 
 /** Сцена с каруселью видео-кружков крупье (ui-spec §3.1). */
 export function Stage({ layout, onHelp }: StageProps) {
-  const { state, dispatch, now } = useDuel();
+  const { state, dispatch, now, sessions } = useDuel();
   const down = useRef<{ x: number; t: EventTarget | null } | null>(null);
   const items = state.mode[state.dealer] === 'items';
   const sz = layout === 'desktop' ? SIZES.desktop : items ? SIZES.mobileItems : SIZES.mobile;
   const d = state.dealers[state.dealer]!;
+  const session = d.live ? sessions.get(d.id) : undefined;
   const timer = timerOf(state, now);
   const liftTimer = useLift('timer');
   const liftHelp = useLift('help');
@@ -85,7 +96,9 @@ export function Stage({ layout, onHelp }: StageProps) {
         {fmtSec(timer.sec)}
       </div>
       <div className={s.hint}>
-        ← свайп · {playing > 0 ? `в игре столов: ${playing}` : 'листай крупье'} →
+        {session
+          ? sessionHint(session, now)
+          : `← свайп · ${playing > 0 ? `в игре столов: ${playing}` : 'листай крупье'} →`}
       </div>
       <button
         type="button"

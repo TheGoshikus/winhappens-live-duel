@@ -7,6 +7,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: { '/api': { target: core, rewrite: (p) => p.replace(/^\/api/, '') } },
+    proxy: { '/api': { target: core, ws: true, rewrite: (p) => p.replace(/^\/api/, '') } },
   },
 });
