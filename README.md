@@ -7,6 +7,7 @@
 - [Платёжный шлюз](docs/payments.md)
 - [План разработки](docs/roadmap.md)
 - [Решения](docs/decisions.md)
+- [ТЗ на игровой экран (web)](docs/ui-spec.md)
 
 ## Разработка
 

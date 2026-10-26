@@ -1,0 +1,58 @@
+/* Дизайн-токены (docs/ui-spec.md §2). */
+:root {
+  --bg-app: radial-gradient(130% 60% at 50% 0%, #1e3a8a 0%, #0b1230 50%, #05070d 100%);
+  --bg-app-desktop: radial-gradient(110% 70% at 50% 0%, #1e3a8a 0%, #0b1230 45%, #05070d 100%);
+  --surface-1: #ffffff0f;
+  --surface-2: #ffffff1a;
+  --surface-3: #ffffff26;
+  --sheet: #141a33;
+  --text-primary: #ffffff;
+  --text-secondary: #c8cdda;
+  --text-muted: #9ca3b8;
+  --ink: #0a0e1a;
+  --accent-blue: #4f8bff;
+  --even: #3ddc97;
+  --odd: #ff6b81;
+  --live: #ef4444;
+  --dim: #05070dd9;
+  --gold: #ffe14d;
+  --font-ui: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-logo: 'Kaushan Script', cursive;
+  --ease-spring: cubic-bezier(0.3, 1.4, 0.5, 1);
+  --ease-carousel: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: #05070d;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
