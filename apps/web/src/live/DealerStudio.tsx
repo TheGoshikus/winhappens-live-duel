@@ -3,6 +3,7 @@ import { createLocalTracks, Room, RoomEvent, Track, type LocalTrack } from 'live
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SCENES } from '../duel/data';
 import { api, ApiError, saveSession } from './api';
+import { DealerRounds } from './DealerRounds';
 import st from './studio.module.css';
 
 interface Me {
@@ -286,7 +287,7 @@ function Broadcast({ onError }: { onError: (e: string | null) => void }) {
 
   return (
     <>
-      <div className={st.preview}>
+      <div className={`${st.preview} ${room ? st.previewLive : ''}`}>
         <video ref={video} autoPlay muted playsInline data-studio-preview />
         {room && (
           <span className={st.badge}>
@@ -294,6 +295,7 @@ function Broadcast({ onError }: { onError: (e: string | null) => void }) {
           </span>
         )}
       </div>
+      {room && <DealerRounds />}
       {room ? (
         <div className={st.card}>
           <p className={st.muted}>

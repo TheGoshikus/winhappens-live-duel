@@ -7,6 +7,9 @@ import { MockOtpSender, type OtpSender } from './identity/otp.js';
 import type { IdentityRoutesDeps } from './identity/routes.js';
 import { createIdentityService } from './identity/service.js';
 import { createTokens } from './identity/tokens.js';
+import type { RoundRoutesDeps } from './rounds/routes.js';
+import { createRoundService } from './rounds/service.js';
+import { createRoundSigner } from './rounds/signer.js';
 import { createLiveKit } from './video/livekit.js';
 import type { VideoRoutesDeps } from './video/routes.js';
 import { createVideoService } from './video/service.js';
@@ -83,4 +86,25 @@ export function createVideoModule(
     subject: (userId) => identity.identity.getSubject(userId, null),
   });
   return { video, livekit };
+}
+
+export function createRoundModule(
+  db: Db,
+  config: CoreConfig,
+  identity: IdentityRoutesDeps,
+  wallet: WalletRoutesDeps,
+  clock?: () => Date,
+): RoundRoutesDeps {
+  return {
+    rounds: createRoundService({
+      db,
+      wallet: wallet.wallet,
+      eligibility: identity.eligibility,
+      subject: (userId, ip) => identity.identity.getSubject(userId, ip),
+      signer: createRoundSigner(config.env.ROUND_SIGNING_KEY),
+      game: config.game,
+      ...(clock ? { clock } : {}),
+    }),
+    countryHeader: config.env.GEO_COUNTRY_HEADER,
+  };
 }

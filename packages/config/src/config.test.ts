@@ -15,6 +15,7 @@ const coreEnv = {
   LIVEKIT_API_SECRET: 'x'.repeat(32),
   PAYMENT_GATEWAY_URL: 'http://localhost:3100',
   JWT_SECRET: 'j'.repeat(32),
+  ROUND_SIGNING_KEY: Buffer.alloc(32, 1).toString('base64'),
 };
 
 describe('config', () => {

@@ -10,7 +10,9 @@ import {
   Tour,
   type HelpChoice,
 } from './Onboarding';
+import { api } from '../live/api';
 import { LiveMediaContext } from '../live/media';
+import type { ItemId } from './data';
 import { useDealerMedia } from '../live/room';
 import { useLiveDealers } from '../live/useLiveDealers';
 import { useDuel } from './store';
@@ -48,7 +50,7 @@ function useDesktop() {
 
 /** Игровой экран + онбординг: правила при первом запуске, видео-обучение, подписи, чек-лист. */
 export function Shell() {
-  const { state } = useDuel();
+  const { state, dispatch } = useDuel();
   const desktop = useDesktop();
   const frame = useRef<HTMLDivElement>(null);
   const [overlay, setOverlay] = useState<Overlay>(() => (read(STORAGE.onboarded) ? null : 'rules'));
@@ -58,6 +60,14 @@ export function Shell() {
   const table = state.dealers[state.dealer]!;
   const liveId = table.live && !table.busy ? table.id : null;
   const media = useDealerMedia(liveId);
+  // Прогресс к взаимности и снятые предметы у живой крупье — с сервера.
+  useEffect(() => {
+    if (!liveId) return;
+    const dealer = state.dealer;
+    api<{ rounds: number; removed: ItemId[] }>(`/dealers/${liveId}/progress`)
+      .then((p) => dispatch({ type: 'progress', dealer, ...p }))
+      .catch(() => {});
+  }, [liveId]);
 
   const closeRules = () => {
     write(STORAGE.onboarded);

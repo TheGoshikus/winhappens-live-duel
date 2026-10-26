@@ -140,6 +140,32 @@ export interface DealerProfileTable {
   updated_at: Timestamp;
 }
 
+export interface DuelRoundTable {
+  id: string;
+  dealer_id: string;
+  player_id: string;
+  currency: 'USDT' | 'FUN';
+  stake: bigint;
+  item: string | null;
+  status: 'commit' | 'reveal' | 'settled' | 'cancelled';
+  player_commit: string | null;
+  dealer_commit: string | null;
+  player_number: number | null;
+  player_salt: string | null;
+  dealer_number: number | null;
+  dealer_salt: string | null;
+  commit_deadline: Timestamp;
+  reveal_deadline: Timestamp | null;
+  outcome: 'normal' | 'forfeit' | null;
+  winner_seat: 0 | 1 | null;
+  prize: bigint | null;
+  win_fee: bigint | null;
+  stake_fee: bigint | null;
+  signature: string | null;
+  created_at: CreatedAt;
+  settled_at: Timestamp | null;
+}
+
 export interface Database {
   users: UsersTable;
   user_contact: UserContactTable;
@@ -153,6 +179,7 @@ export interface Database {
   ledger_tx: LedgerTxTable;
   ledger_entry: LedgerEntryTable;
   dealer_profile: DealerProfileTable;
+  duel_round: DuelRoundTable;
 }
 
 export type User = Selectable<UsersTable>;

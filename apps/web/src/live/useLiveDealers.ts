@@ -8,9 +8,10 @@ const POLL_MS = 5_000;
 
 /** Опрашивает GET /dealers и синхронизирует столы. Без core игра остаётся на демо-столах. */
 export function useLiveDealers() {
-  const { dispatch } = useDuel();
+  const { dispatch, syncBalance } = useDuel();
   useEffect(() => {
     let stop = false;
+    let online = false;
     const tick = async () => {
       try {
         const { dealers } = liveDealersResponseSchema.parse(await api<unknown>('/dealers'));
@@ -24,7 +25,13 @@ export function useLiveDealers() {
             Number(d.currency === 'FUN' ? d.minStake / 100n : d.minStake / 1_000_000n),
           ),
         }));
-        if (!stop) dispatch({ type: 'syncLive', live, now: Date.now() });
+        if (stop) return;
+        dispatch({ type: 'syncLive', live, now: Date.now() });
+        // Появились живые столы — дальше играем на реальном кошельке.
+        if (live.length && !online) {
+          online = true;
+          await syncBalance();
+        }
       } catch {
         // core недоступен — демо-режим
       }
@@ -35,5 +42,5 @@ export function useLiveDealers() {
       stop = true;
       window.clearInterval(id);
     };
-  }, [dispatch]);
+  }, [dispatch, syncBalance]);
 }

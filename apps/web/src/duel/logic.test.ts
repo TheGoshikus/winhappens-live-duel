@@ -221,3 +221,31 @@ describe('эфир', () => {
     expect(s.dealer).toBe(0);
   });
 });
+
+describe('живой раунд (итог от сервера)', () => {
+  it('отмена возвращает ставку со сбором и показывает сообщение до следующего действия', () => {
+    let s = run(initialState(T), { type: 'pick', n: 4 }, { type: 'confirm', now: T });
+    expect(s.balance).toBe(100_000 - 511);
+    s = run(s, { type: 'abort', dealer: 0, text: 'КРУПЬЕ НЕ УСПЕЛА · СТАВКА ВОЗВРАЩЕНА', now: T });
+    expect(s.balance).toBe(100_000);
+    expect(roundOf(s, 0)).toMatchObject({ phase: 'pick', pick: 4 });
+    expect(caption(s)).toBe('КРУПЬЕ НЕ УСПЕЛА · СТАВКА ВОЗВРАЩЕНА');
+    expect(caption(run(s, { type: 'pick', n: 5 }))).toBe('ДЕЛАЙТЕ СТАВКИ');
+  });
+
+  it('число крупье и победа приходят с сервера; таймаут крупье — победа без её числа', () => {
+    let s = run(initialState(T), { type: 'pick', n: 2 }, { type: 'confirm', now: T });
+    s = run(s, { type: 'reveal', dealer: 0, now: T, dealerPick: null });
+    expect(caption(s)).toBe('2 + ?');
+    s = run(s, { type: 'finish', dealer: 0, won: true });
+    expect(caption(s)).toBe('ПОБЕДА +9,50');
+    expect(badge({ ...s, dealer: 1 }, 0)).toMatchObject({ kind: 'win' });
+  });
+
+  it('прогресс с сервера: 3+ раунда открывают предложение взаимности, снятые предметы', () => {
+    const s = run(initialState(T), { type: 'progress', dealer: 0, rounds: 3, removed: ['hat'] });
+    expect(roundOf(s, 0).count).toBe(3);
+    expect(s.offer).toBe(0);
+    expect(s.removed[0]).toEqual(['hat']);
+  });
+});

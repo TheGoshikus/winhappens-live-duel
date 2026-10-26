@@ -146,3 +146,9 @@
   padding: 10px 12px;
   font-size: 14px;
 }
+
+/* В эфире превью ниже, чтобы пульт раундов был виден без прокрутки. */
+.previewLive {
+  aspect-ratio: auto;
+  height: 38dvh;
+}

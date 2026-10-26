@@ -12,4 +12,5 @@ export const testEnv = {
   GEO_ADULT_ALLOWED: 'DE',
   OTP_MAX_ATTEMPTS: '3',
   OTP_MAX_PER_HOUR: '3',
+  ROUND_SIGNING_KEY: Buffer.alloc(32, 7).toString('base64'),
 };

@@ -27,6 +27,10 @@ export const coreEnvSchema = identityEnvSchema.extend({
   LIVEKIT_API_KEY: z.string().min(1),
   LIVEKIT_API_SECRET: z.string().min(32),
   PAYMENT_GATEWAY_URL: url,
+  /** Seed ключа Ed25519 (32 байта, base64) для подписи результатов раундов. */
+  ROUND_SIGNING_KEY: z
+    .string()
+    .refine((v) => Buffer.from(v, 'base64').length === 32, 'expected 32-byte base64 Ed25519 seed'),
 });
 
 export const gatewayEnvSchema = z.object({

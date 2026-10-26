@@ -26,7 +26,10 @@ export interface Round {
   item: ItemId | null;
   /** Сыгранные раунды с этим крупье — заполняют кольцо. */
   count: number;
+  /** null — ещё не раскрыто (или крупье не раскрылась и проиграла по таймауту). */
   dealerPick: number | null;
+  /** Итог от сервера (живой стол); для демо считается по числам. */
+  won?: boolean;
   /** Когда начался приём ставок / когда закончится текущая фаза (мс). */
   startedAt: number;
   phaseEndsAt: number | null;
@@ -55,6 +58,8 @@ export interface DuelState {
   offer: number | null;
   full: boolean;
   history: HistoryEntry[];
+  /** Короткое сообщение на сцене (например, «раунд отменён»). */
+  notice: { dealer: number; text: string } | null;
 }
 
 export type Action =
@@ -66,8 +71,13 @@ export type Action =
   | { type: 'double' }
   | { type: 'item'; id: ItemId }
   | { type: 'confirm'; now: number }
-  | { type: 'reveal'; dealer: number; now: number }
-  | { type: 'finish'; dealer: number }
+  | { type: 'reveal'; dealer: number; now: number; dealerPick?: number | null }
+  | { type: 'finish'; dealer: number; won?: boolean }
+  /** Живой раунд отменён сервером: ставка и сбор вернулись. */
+  | { type: 'abort'; dealer: number; text: string; now: number }
+  | { type: 'setBalance'; cents: number }
+  /** Прогресс с крупье с сервера: сыгранные раунды и снятые предметы. */
+  | { type: 'progress'; dealer: number; rounds: number; removed: ItemId[] }
   | { type: 'nextRound'; now: number }
   | { type: 'acceptOffer'; now: number }
   | { type: 'dismissOffer' }
@@ -138,12 +148,16 @@ export function initialState(now: number, dealer = 0, dealers: Dealer[] = DEALER
     offer: null,
     full: false,
     history: [],
+    notice: null,
   };
 }
 
 export function roundOf(s: DuelState, dealer: number, now = 0): Round {
   return s.rounds[dealer] ?? newRound(0, now, s.stake, s.chip);
 }
+
+/** Демо-столы, занятые по сценарию (ui-spec §4). */
+const DEMO_BUSY = new Set(DEALERS.filter((d) => d.busy).map((d) => d.id));
 
 /** Следующий свободный крупье по кругу в направлении dir. */
 export function stepDealer(dealers: Dealer[], from: number, dir: 1 | -1): number {
@@ -162,7 +176,11 @@ export function stepDealer(dealers: Dealer[], from: number, dir: 1 | -1): number
 function syncLive(s: DuelState, live: LiveTable[], now: number): DuelState {
   const ids = new Set(live.map((l) => l.id));
   const known = new Map(s.dealers.map((d, i) => [d.id, i]));
-  const dealers = s.dealers.map((d) => (d.live ? { ...d, busy: !ids.has(d.id) } : d));
+  // Пока в эфире есть реальные крупье, демо-столы скрыты (листание их пропускает).
+  const demoBusy = live.length > 0;
+  const dealers: Dealer[] = s.dealers.map((d) =>
+    d.live ? { ...d, busy: !ids.has(d.id) } : { ...d, busy: DEMO_BUSY.has(d.id) || demoBusy },
+  );
   for (const l of live) {
     const i = known.get(l.id);
     const row: Dealer = {
@@ -202,6 +220,13 @@ function updateRound(s: DuelState, dealer: number, patch: Partial<Round>): DuelS
 }
 
 export function reducer(s: DuelState, a: Action): DuelState {
+  // Сообщение висит до первого действия игрока.
+  if (s.notice && ['pick', 'chip', 'confirm', 'select', 'step', 'item'].includes(a.type))
+    s = { ...s, notice: null };
+  return reduce(s, a);
+}
+
+function reduce(s: DuelState, a: Action): DuelState {
   const cur = roundOf(s, s.dealer);
   const picking = cur.phase === 'pick';
   switch (a.type) {
@@ -247,18 +272,19 @@ export function reducer(s: DuelState, a: Action): DuelState {
       if (r.phase !== 'wait') return s;
       return updateRound(s, a.dealer, {
         phase: 'reveal',
-        dealerPick: demoDealerPick(a.dealer, r.count),
+        dealerPick: a.dealerPick !== undefined ? a.dealerPick : demoDealerPick(a.dealer, r.count),
         phaseEndsAt: a.now + DONE_AFTER_MS,
       });
     }
     case 'finish': {
       const r = roundOf(s, a.dealer);
-      if (r.phase !== 'reveal' || r.pick === null || r.dealerPick === null) return s;
-      const won = playerWins(r.pick, r.dealerPick);
+      if (r.phase !== 'reveal' || r.pick === null) return s;
+      if (a.won === undefined && r.dealerPick === null) return s;
+      const won = a.won ?? playerWins(r.pick, r.dealerPick!);
       const payout = payoutCents(r.stake, r.item !== null);
       const cost = costCents(r.stake);
       const count = r.count + 1;
-      let next = updateRound(s, a.dealer, { phase: 'done', count, phaseEndsAt: null });
+      let next = updateRound(s, a.dealer, { phase: 'done', count, won, phaseEndsAt: null });
       next = {
         ...next,
         balance: next.balance + (won ? payout : 0),
@@ -298,6 +324,31 @@ export function reducer(s: DuelState, a: Action): DuelState {
       return { ...s, full: a.open };
     case 'syncLive':
       return syncLive(s, a.live, a.now);
+    case 'abort': {
+      const r = roundOf(s, a.dealer);
+      if (r.phase !== 'wait' && r.phase !== 'reveal') return s;
+      return {
+        ...updateRound(s, a.dealer, { ...newRound(r.count, a.now, r.stake, r.chip), pick: r.pick }),
+        balance: s.balance + costCents(r.stake),
+        notice: { dealer: a.dealer, text: a.text },
+      };
+    }
+    case 'setBalance':
+      return { ...s, balance: a.cents };
+    case 'progress': {
+      const r = roundOf(s, a.dealer);
+      let next = {
+        ...updateRound(s, a.dealer, { count: Math.max(r.count, a.rounds) }),
+        removed: { ...s.removed, [a.dealer]: a.removed },
+      };
+      if (
+        a.rounds >= ROUNDS_TO_RECIPROCITY &&
+        next.mode[a.dealer] !== 'items' &&
+        next.offer === null
+      )
+        next = { ...next, offer: a.dealer };
+      return next;
+    }
   }
 }
 
@@ -320,18 +371,22 @@ export function ctaLabel(s: DuelState): string {
   return `Ставка ${s.stake} на ${r.pick}`;
 }
 
+const wonOf = (r: Round) => r.won ?? playerWins(r.pick!, r.dealerPick!);
+
 export function caption(s: DuelState, dealer = s.dealer): string {
   const r = roundOf(s, dealer);
+  if (s.notice?.dealer === dealer && r.phase === 'pick') return s.notice.text;
   switch (r.phase) {
     case 'pick':
       return 'ДЕЛАЙТЕ СТАВКИ';
     case 'wait':
       return 'СТАВКИ СДЕЛАНЫ';
     case 'reveal':
-      return `${r.pick} + ${r.dealerPick} = ${r.pick! + r.dealerPick!}`;
+      return r.dealerPick === null
+        ? `${r.pick} + ?`
+        : `${r.pick} + ${r.dealerPick} = ${r.pick! + r.dealerPick}`;
     case 'done': {
-      if (!playerWins(r.pick!, r.dealerPick!))
-        return `${s.dealers[dealer]!.name.toUpperCase()} ЗАБИРАЕТ`;
+      if (!wonOf(r)) return `${s.dealers[dealer]!.name.toUpperCase()} ЗАБИРАЕТ`;
       const item = itemById(r.item);
       return item
         ? `ПОБЕДА · ${item.name.toUpperCase()} СНИМАЕТСЯ`
@@ -348,7 +403,7 @@ export function badge(
   const r = s.rounds[dealer];
   if (!r || r.phase === 'pick') return null;
   if (r.phase !== 'done') return { kind: 'live', text: '●' };
-  return playerWins(r.pick!, r.dealerPick!)
+  return wonOf(r)
     ? {
         kind: 'win',
         text: `+${fmtMoney(payoutCents(r.stake, r.item !== null) - costCents(r.stake))}`,
