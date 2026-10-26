@@ -1,5 +1,5 @@
 import { Chip } from './Chip';
-import { CHIPS, DEALERS, ITEMS, chipColor } from './data';
+import { CHIPS, ITEMS, chipColor } from './data';
 import s from './duel.module.css';
 import { LIFT_TRANSITION, useLift } from './lift';
 import {
@@ -71,8 +71,8 @@ export function ItemsBlock() {
       }}
     >
       <div className={s.informer}>
-        <b>{DEALERS[state.dealer]!.name}</b> отвечает взаимностью и даёт тебе возможность снять с
-        неё
+        <b>{state.dealers[state.dealer]!.name}</b> отвечает взаимностью и даёт тебе возможность
+        снять с неё
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <span className={s.caps}>

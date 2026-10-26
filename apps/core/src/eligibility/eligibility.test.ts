@@ -176,3 +176,19 @@ describe('canOpposite', () => {
     });
   });
 });
+
+describe('canBeDealer', () => {
+  it('только зарегистрированная совершеннолетняя девушка с KYC', () => {
+    expect(elig().canBeDealer(verified)).toEqual({ ok: true });
+    expect(elig().canBeDealer(guest)).toMatchObject({ reason: 'registration_required' });
+    expect(elig().canBeDealer(withKyc({ verifiedGender: 'male' }))).toMatchObject({
+      reason: 'dealer_female_only',
+    });
+    expect(elig().canBeDealer(withKyc({ status: 'pending' }))).toMatchObject({
+      reason: 'kyc_required',
+    });
+    expect(elig().canBeDealer(withKyc({ birthdate: '2010-01-01' }))).toMatchObject({
+      reason: 'underage',
+    });
+  });
+});

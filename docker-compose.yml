@@ -29,7 +29,7 @@ services:
       retries: 30
 
   livekit:
-    image: livekit/livekit-server:v1.8
+    image: livekit/livekit-server:v1.11.0
     command: --config /etc/livekit.yaml
     ports:
       - '7880:7880'
@@ -37,6 +37,8 @@ services:
       - '7882:7882/udp'
     volumes:
       - ./infra/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       redis:
         condition: service_healthy

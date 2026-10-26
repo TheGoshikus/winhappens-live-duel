@@ -22,6 +22,8 @@ export const coreEnvSchema = identityEnvSchema.extend({
   CORE_DATABASE_URL: url,
   REDIS_URL: url,
   LIVEKIT_URL: url,
+  /** Адрес LiveKit для браузеров; по умолчанию = LIVEKIT_URL. */
+  LIVEKIT_PUBLIC_URL: url.optional(),
   LIVEKIT_API_KEY: z.string().min(1),
   LIVEKIT_API_SECRET: z.string().min(32),
   PAYMENT_GATEWAY_URL: url,

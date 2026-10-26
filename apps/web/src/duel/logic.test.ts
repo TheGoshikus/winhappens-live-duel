@@ -56,10 +56,10 @@ describe('правила', () => {
 
   it('листание пропускает занятых крупье по кругу', () => {
     expect(DEALERS[3]!.busy).toBe(true);
-    expect(stepDealer(2, 1)).toBe(4);
-    expect(stepDealer(4, -1)).toBe(2);
-    expect(stepDealer(0, -1)).toBe(11);
-    expect(stepDealer(9, 1)).toBe(11);
+    expect(stepDealer(DEALERS, 2, 1)).toBe(4);
+    expect(stepDealer(DEALERS, 4, -1)).toBe(2);
+    expect(stepDealer(DEALERS, 0, -1)).toBe(11);
+    expect(stepDealer(DEALERS, 9, 1)).toBe(11);
   });
 
   it('смена крупье поднимает ставку до его минимума', () => {
@@ -184,5 +184,40 @@ describe('взаимность', () => {
 
   it('предметы недоступны без режима взаимности', () => {
     expect(run(initialState(T), { type: 'item', id: 'hat' }).item).toBeNull();
+  });
+});
+
+describe('эфир', () => {
+  const live = (id: string, name = 'Аня') => ({ id, name, scene: 'lobby' as const, min: 5 });
+
+  it('реальные крупье дописываются в конец; первая выбирается, если игрок ещё не играл', () => {
+    const s = run(initialState(T), { type: 'syncLive', live: [live('u1')], now: T });
+    expect(s.dealers).toHaveLength(13);
+    expect(s.dealers[12]).toMatchObject({ id: 'u1', name: 'Аня', scene: 'Лобби', live: true });
+    expect(s.dealer).toBe(12);
+  });
+
+  it('ушедшая из эфира становится занятой, индексы и раунды не сдвигаются', () => {
+    let s = run(initialState(T), {
+      type: 'syncLive',
+      live: [live('u1'), live('u2', 'Оля')],
+      now: T,
+    });
+    s = run(s, { type: 'step', dir: 1, now: T });
+    expect(s.dealers[s.dealer]!.id).toBe('u2');
+    s = run(s, { type: 'pick', n: 1 }, { type: 'confirm', now: T });
+    s = run(s, { type: 'syncLive', live: [live('u2', 'Оля')], now: T });
+    expect(s.dealers[12]).toMatchObject({ id: 'u1', busy: true });
+    expect(s.dealers[s.dealer]!.id).toBe('u2');
+    expect(roundOf(s, s.dealer).phase).toBe('wait');
+    // вернулась в эфир — снова доступна
+    s = run(s, { type: 'syncLive', live: [live('u1'), live('u2', 'Оля')], now: T });
+    expect(s.dealers[12]!.busy).toBe(false);
+  });
+
+  it('если игрок уже играет у демо-стола, не перекидываем', () => {
+    let s = run(initialState(T), { type: 'pick', n: 1 }, { type: 'confirm', now: T });
+    s = run(s, { type: 'syncLive', live: [live('u1')], now: T });
+    expect(s.dealer).toBe(0);
   });
 });

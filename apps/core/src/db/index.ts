@@ -3,6 +3,7 @@ import { Migrator, type Migration } from 'kysely/migration';
 import pg from 'pg';
 import * as m0001 from './migrations/0001_identity.js';
 import * as m0002 from './migrations/0002_ledger.js';
+import * as m0003 from './migrations/0003_dealer.js';
 import type { Database } from './schema.js';
 
 export type { Database } from './schema.js';
@@ -23,6 +24,7 @@ export function createDb(connectionString: string, max = 10) {
 const migrations: Record<string, Migration> = {
   '0001_identity': m0001,
   '0002_ledger': m0002,
+  '0003_dealer': m0003,
 };
 
 // Migrator принимает Kysely<any>: схема до миграций ещё не совпадает с Database.

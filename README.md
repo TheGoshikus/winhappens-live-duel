@@ -54,4 +54,18 @@ pnpm dev          # docker compose (postgres: core + payments, redis, livekit) +
 | `GET /wallet/history?currency=USDT&limit=50&before=` | проводки основного счёта, новые сверху                                       |
 | `POST /dev/wallet/deposit`                           | mock `deposit.succeeded` до появления шлюза (вне production)                 |
 
+### Видео: крупье в эфире (этап 8)
+
+| Метод                     | Назначение                                                                 |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `POST /dealer/live`       | открыть стол и получить токен LiveKit на публикацию (только девушка с KYC) |
+| `POST /dealer/offline`    | закрыть стол                                                               |
+| `GET /dealers`            | крупье в эфире                                                             |
+| `POST /dealers/:id/watch` | токен LiveKit только на просмотр                                           |
+| `POST /livekit/webhook`   | события LiveKit (подпись проверяется): крупье вышла — стол закрыт          |
+
+Проверить локально: `pnpm dev`, во вкладке http://localhost:5173/#/dealer войти по коду (код — в логе core),
+пройти mock-проверку личности с полом «Женский», выйти в эфир. В другом окне http://localhost:5173 игрок
+увидит стол «LIVE» с живым видео в кружке и на полном экране.
+
 Страна по IP берётся из заголовка доверенного прокси (`GEO_COUNTRY_HEADER`, по умолчанию `cf-ipcountry`). В разработке OTP-код пишется в лог core.

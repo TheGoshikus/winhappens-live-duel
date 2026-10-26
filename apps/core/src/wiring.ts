@@ -7,6 +7,9 @@ import { MockOtpSender, type OtpSender } from './identity/otp.js';
 import type { IdentityRoutesDeps } from './identity/routes.js';
 import { createIdentityService } from './identity/service.js';
 import { createTokens } from './identity/tokens.js';
+import { createLiveKit } from './video/livekit.js';
+import type { VideoRoutesDeps } from './video/routes.js';
+import { createVideoService } from './video/service.js';
 import type { WalletRoutesDeps } from './wallet/routes.js';
 import { createWalletService } from './wallet/service.js';
 
@@ -59,4 +62,25 @@ export function createWalletModule(db: Db, config: CoreConfig): WalletRoutesDeps
     }),
     devRoutes: config.env.NODE_ENV !== 'production',
   };
+}
+
+export function createVideoModule(
+  db: Db,
+  config: CoreConfig,
+  identity: IdentityRoutesDeps,
+): VideoRoutesDeps {
+  const { env } = config;
+  const livekit = createLiveKit({
+    publicUrl: env.LIVEKIT_PUBLIC_URL ?? env.LIVEKIT_URL,
+    apiKey: env.LIVEKIT_API_KEY,
+    apiSecret: env.LIVEKIT_API_SECRET,
+  });
+  const video = createVideoService({
+    db,
+    livekit,
+    eligibility: identity.eligibility,
+    // Для допуска крупье гео не нужно — страна по IP здесь не участвует.
+    subject: (userId) => identity.identity.getSubject(userId, null),
+  });
+  return { video, livekit };
 }

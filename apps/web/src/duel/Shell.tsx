@@ -10,6 +10,9 @@ import {
   Tour,
   type HelpChoice,
 } from './Onboarding';
+import { LiveMediaContext } from '../live/media';
+import { useDealerMedia } from '../live/room';
+import { useLiveDealers } from '../live/useLiveDealers';
 import { useDuel } from './store';
 
 type Overlay = 'rules' | 'tour' | 'labels' | 'checklist' | 'menu' | null;
@@ -51,6 +54,10 @@ export function Shell() {
   const [overlay, setOverlay] = useState<Overlay>(() => (read(STORAGE.onboarded) ? null : 'rules'));
   const [tourKey, setTourKey] = useState<string | null>(null);
   const [tourDone, setTourDone] = useState(() => read(STORAGE.tourDone));
+  useLiveDealers();
+  const table = state.dealers[state.dealer]!;
+  const liveId = table.live && !table.busy ? table.id : null;
+  const media = useDealerMedia(liveId);
 
   const closeRules = () => {
     write(STORAGE.onboarded);
@@ -101,12 +108,14 @@ export function Shell() {
   const onboarding = overlay === 'rules' || overlay === 'tour' || overlay === 'labels';
   const props = { onHelp: () => setOverlay('menu'), showParity: onboarding, frameRef: frame };
   return (
-    <TourKeyContext.Provider value={overlay === 'tour' ? tourKey : null}>
-      {desktop ? (
-        <DesktopGame {...props}>{layer}</DesktopGame>
-      ) : (
-        <MobileGame {...props}>{layer}</MobileGame>
-      )}
-    </TourKeyContext.Provider>
+    <LiveMediaContext.Provider value={{ dealerId: liveId, media }}>
+      <TourKeyContext.Provider value={overlay === 'tour' ? tourKey : null}>
+        {desktop ? (
+          <DesktopGame {...props}>{layer}</DesktopGame>
+        ) : (
+          <MobileGame {...props}>{layer}</MobileGame>
+        )}
+      </TourKeyContext.Provider>
+    </LiveMediaContext.Provider>
   );
 }

@@ -1,14 +1,16 @@
-import { DEALERS, ROUNDS_TO_RECIPROCITY } from './data';
+import { ROUNDS_TO_RECIPROCITY } from './data';
 import s from './duel.module.css';
 import { caption, fmtSec, roundOf, timerOf } from './logic';
 import { useDuel } from './store';
+import { DealerVideo, TrackAudio, useLiveMedia } from '../live/media';
 import { VideoFill } from './Video';
 
 /** Полноэкранное видео крупье (ui-spec §6). */
 export function FullscreenVideo() {
   const { state, dispatch, now } = useDuel();
+  const { dealerId, media } = useLiveMedia();
   if (!state.full) return null;
-  const d = DEALERS[state.dealer]!;
+  const d = state.dealers[state.dealer]!;
   const r = roundOf(state, state.dealer);
   const timer = timerOf(state, now);
   const close = () => dispatch({ type: 'full', open: false });
@@ -20,7 +22,10 @@ export function FullscreenVideo() {
         : 'Ставка не сделана';
   return (
     <div className={s.overlay} role="dialog" aria-label={`Видео: ${d.name}`}>
-      <VideoFill tint={d.tint} label="видео крупье" />
+      <div style={{ position: 'absolute', inset: 0 }}>
+        <DealerVideo dealer={d} label="видео крупье" />
+      </div>
+      {d.live && d.id === dealerId && <TrackAudio track={media.audio} />}
       <div className={s.fullTop}>
         <span
           style={{
@@ -46,7 +51,7 @@ export function FullscreenVideo() {
               gap: 5,
             }}
           >
-            <span className={s.liveDot} /> LIVE · {d.scene}
+            <span className={s.liveDot} /> {d.live ? 'LIVE' : 'ДЕМО'} · {d.scene}
           </span>
         </span>
         <span
@@ -84,7 +89,7 @@ export function FullscreenVideo() {
 export function OfferModal() {
   const { state, dispatch } = useDuel();
   if (state.offer === null) return null;
-  const d = DEALERS[state.offer]!;
+  const d = state.dealers[state.offer]!;
   return (
     <div
       className={`${s.overlay} ${s.dimmed}`}
@@ -94,7 +99,7 @@ export function OfferModal() {
     >
       <div className={s.offerAvatar}>
         <div className={s.video}>
-          <VideoFill tint={d.tint} label={null} />
+          <DealerVideo dealer={d} label={null} />
         </div>
       </div>
       <span className={s.caps} style={{ textAlign: 'center' }}>

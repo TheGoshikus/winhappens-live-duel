@@ -1,4 +1,3 @@
-import { DEALERS } from './data';
 import s from './duel.module.css';
 import { LIFT_TRANSITION, useLift } from './lift';
 import { isEven, roundOf } from './logic';
@@ -41,7 +40,7 @@ export function DuelStrip({ height = 44 }: { height?: number }) {
         {sum === null ? 'VS' : `${sum} · ${isEven(sum) ? 'ЧЁТ' : 'НЕЧЁТ'}`}
       </span>
       <span>
-        <span style={{ color: 'var(--odd)' }}>НЕЧЁТ</span> · {DEALERS[state.dealer]!.name}
+        <span style={{ color: 'var(--odd)' }}>НЕЧЁТ</span> · {state.dealers[state.dealer]!.name}
       </span>
       <span
         className={s.duelNum}

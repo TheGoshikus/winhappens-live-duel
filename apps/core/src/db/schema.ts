@@ -126,6 +126,20 @@ export interface LedgerEntryTable {
   created_at: CreatedAt;
 }
 
+export type DealerScene = 'cabaret' | 'lobby' | 'nature' | 'armchair';
+
+export interface DealerProfileTable {
+  user_id: string;
+  display_name: string;
+  scene: DealerScene;
+  currency: 'USDT' | 'FUN';
+  min_stake: bigint;
+  status: Generated<'offline' | 'live'>;
+  room: string;
+  went_live_at: Timestamp | null;
+  updated_at: Timestamp;
+}
+
 export interface Database {
   users: UsersTable;
   user_contact: UserContactTable;
@@ -138,6 +152,7 @@ export interface Database {
   wallet_account: WalletAccountTable;
   ledger_tx: LedgerTxTable;
   ledger_entry: LedgerEntryTable;
+  dealer_profile: DealerProfileTable;
 }
 
 export type User = Selectable<UsersTable>;

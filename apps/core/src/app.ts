@@ -4,6 +4,7 @@ import { AppError } from './errors.js';
 import { registerHealth, type Probe } from './health.js';
 import { registerAuth } from './identity/auth.js';
 import { identityRoutes, type IdentityRoutesDeps } from './identity/routes.js';
+import { videoRoutes, type VideoRoutesDeps } from './video/routes.js';
 import { walletRoutes, type WalletRoutesDeps } from './wallet/routes.js';
 
 export interface CoreDeps {
@@ -11,6 +12,7 @@ export interface CoreDeps {
   /** Без identity поднимается только /health (тесты каркаса). */
   identity?: IdentityRoutesDeps;
   wallet?: WalletRoutesDeps;
+  video?: VideoRoutesDeps;
 }
 
 export function buildApp(deps: CoreDeps, opts: FastifyServerOptions = {}) {
@@ -33,11 +35,12 @@ export function buildApp(deps: CoreDeps, opts: FastifyServerOptions = {}) {
   });
 
   registerHealth(app, 'core', deps.probes);
-  const { identity, wallet } = deps;
+  const { identity, wallet, video } = deps;
   if (identity) {
     registerAuth(app, identity.tokens);
     app.register(async (scope) => identityRoutes(scope, identity));
     if (wallet) app.register(async (scope) => walletRoutes(scope, wallet));
+    if (video) app.register(async (scope) => videoRoutes(scope, video));
   }
   return app;
 }

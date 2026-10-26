@@ -32,7 +32,8 @@ export type DenyReason =
   | 'adult_unavailable'
   | 'adult_opt_in_required'
   | 'stay_streak_exceeded'
-  | 'gender_unverified';
+  | 'gender_unverified'
+  | 'dealer_female_only';
 
 export type Decision = { ok: true } | { ok: false; reason: DenyReason };
 
@@ -133,7 +134,20 @@ export function createEligibility(
     return ALLOW;
   }
 
-  return { canPlay, canAdult, canStayX2, canOpposite };
+  /**
+   * Стол крупье может открыть только девушка: подтверждённый KYC, пол из KYC, совершеннолетие
+   * (docs/decisions.md). Договор и согласие на формат — на стороне площадки.
+   */
+  function canBeDealer(s: EligibilitySubject): Decision {
+    if (s.user.status !== 'active') return deny('user_blocked');
+    if (s.user.kind !== 'registered') return deny('registration_required');
+    const adult = verifiedAdult(s);
+    if (!adult.ok) return adult;
+    if (s.kyc?.verifiedGender !== 'female') return deny('dealer_female_only');
+    return ALLOW;
+  }
+
+  return { canPlay, canAdult, canStayX2, canOpposite, canBeDealer };
 }
 
 export type Eligibility = ReturnType<typeof createEligibility>;

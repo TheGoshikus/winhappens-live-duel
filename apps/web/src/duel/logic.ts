@@ -2,6 +2,7 @@ import {
   BET_WINDOW_SEC,
   DEALERS,
   DONE_AFTER_MS,
+  SCENES,
   ITEMS,
   RECIPROCITY_WIN_FEE_BPS,
   STAKE_FEE_BPS,
@@ -10,7 +11,9 @@ import {
   ROUNDS_TO_RECIPROCITY,
   START_BALANCE,
   itemById,
+  type Dealer,
   type ItemId,
+  type SceneId,
 } from './data';
 
 export type Phase = 'pick' | 'wait' | 'reveal' | 'done';
@@ -37,6 +40,8 @@ export interface HistoryEntry {
 }
 
 export interface DuelState {
+  /** Столы: демо + крупье в эфире. Список только растёт — индексы стабильны. */
+  dealers: Dealer[];
   dealer: number;
   rounds: Record<number, Round>;
   stake: number;
@@ -66,7 +71,16 @@ export type Action =
   | { type: 'nextRound'; now: number }
   | { type: 'acceptOffer'; now: number }
   | { type: 'dismissOffer' }
-  | { type: 'full'; open: boolean };
+  | { type: 'full'; open: boolean }
+  | { type: 'syncLive'; live: LiveTable[]; now: number };
+
+/** Крупье в эфире (GET /dealers), минимальная ставка — в фишках. */
+export interface LiveTable {
+  id: string;
+  name: string;
+  scene: SceneId;
+  min: number;
+}
 
 /** Игрок всегда ЧЁТ (место 0): побеждает при чётной сумме. */
 export const isEven = (n: number) => n % 2 === 0;
@@ -108,10 +122,11 @@ const newRound = (count: number, now: number, stake: number, chip: number): Roun
   phaseEndsAt: null,
 });
 
-export function initialState(now: number, dealer = 0): DuelState {
-  const d = DEALERS[dealer]!;
+export function initialState(now: number, dealer = 0, dealers: Dealer[] = DEALERS): DuelState {
+  const d = dealers[dealer]!;
   const stake = Math.max(5, d.min);
   return {
+    dealers,
     dealer,
     rounds: { [dealer]: newRound(0, now, stake, 5) },
     stake,
@@ -131,17 +146,50 @@ export function roundOf(s: DuelState, dealer: number, now = 0): Round {
 }
 
 /** Следующий свободный крупье по кругу в направлении dir. */
-export function stepDealer(from: number, dir: 1 | -1): number {
-  const n = DEALERS.length;
+export function stepDealer(dealers: Dealer[], from: number, dir: 1 | -1): number {
+  const n = dealers.length;
   for (let k = 1; k <= n; k++) {
     const i = (from + dir * k + n * k) % n;
-    if (!DEALERS[i]!.busy) return i;
+    if (!dealers[i]!.busy) return i;
   }
   return from;
 }
 
+/**
+ * Синхронизация с эфиром: новые крупье дописываются в конец, ушедшие — «заняты». При первом
+ * появлении реальных крупье, если игрок ещё не играл, переключаемся на первую из них.
+ */
+function syncLive(s: DuelState, live: LiveTable[], now: number): DuelState {
+  const ids = new Set(live.map((l) => l.id));
+  const known = new Map(s.dealers.map((d, i) => [d.id, i]));
+  const dealers = s.dealers.map((d) => (d.live ? { ...d, busy: !ids.has(d.id) } : d));
+  for (const l of live) {
+    const i = known.get(l.id);
+    const row: Dealer = {
+      id: l.id,
+      name: l.name,
+      scene: SCENES[l.scene].label,
+      tint: SCENES[l.scene].tint,
+      min: l.min,
+      live: true,
+    };
+    if (i === undefined) dealers.push(row);
+    else dealers[i] = { ...row, busy: false };
+  }
+  let next: DuelState = { ...s, dealers };
+  const firstLive = dealers.findIndex((d) => d.live && !d.busy);
+  const untouched =
+    s.history.length === 0 && roundOf(s, s.dealer).phase === 'pick' && !s.dealers[s.dealer]!.live;
+  if (firstLive >= 0 && untouched) next = selectDealer(next, firstLive, now);
+  // Текущая крупье ушла из эфира посреди выбора — к следующей свободной.
+  if (dealers[next.dealer]!.busy && roundOf(next, next.dealer).phase === 'pick') {
+    next = selectDealer(next, stepDealer(dealers, next.dealer, 1), now);
+  }
+  return next;
+}
+
 function selectDealer(s: DuelState, dealer: number, now: number): DuelState {
-  const d = DEALERS[dealer];
+  const d = s.dealers[dealer];
   if (!d || d.busy || dealer === s.dealer) return s;
   const rounds = s.rounds[dealer]
     ? s.rounds
@@ -160,7 +208,7 @@ export function reducer(s: DuelState, a: Action): DuelState {
     case 'select':
       return selectDealer(s, a.dealer, a.now);
     case 'step':
-      return selectDealer(s, stepDealer(s.dealer, a.dir), a.now);
+      return selectDealer(s, stepDealer(s.dealers, s.dealer, a.dir), a.now);
     case 'pick':
       if (!picking || a.n < 0 || a.n > 9) return s;
       return updateRound(s, s.dealer, { pick: a.n });
@@ -230,7 +278,7 @@ export function reducer(s: DuelState, a: Action): DuelState {
     }
     case 'nextRound': {
       if (cur.phase !== 'done') return s;
-      const min = DEALERS[s.dealer]!.min;
+      const min = s.dealers[s.dealer]!.min;
       return {
         ...s,
         item: null,
@@ -248,6 +296,8 @@ export function reducer(s: DuelState, a: Action): DuelState {
       return { ...s, offer: null };
     case 'full':
       return { ...s, full: a.open };
+    case 'syncLive':
+      return syncLive(s, a.live, a.now);
   }
 }
 
@@ -281,7 +331,7 @@ export function caption(s: DuelState, dealer = s.dealer): string {
       return `${r.pick} + ${r.dealerPick} = ${r.pick! + r.dealerPick!}`;
     case 'done': {
       if (!playerWins(r.pick!, r.dealerPick!))
-        return `${DEALERS[dealer]!.name.toUpperCase()} ЗАБИРАЕТ`;
+        return `${s.dealers[dealer]!.name.toUpperCase()} ЗАБИРАЕТ`;
       const item = itemById(r.item);
       return item
         ? `ПОБЕДА · ${item.name.toUpperCase()} СНИМАЕТСЯ`

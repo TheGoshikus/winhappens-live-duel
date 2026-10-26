@@ -4,9 +4,17 @@ rtc:
   tcp_port: 7881
   udp_port: 7882
   use_external_ip: false
+  # Браузер на этой же машине ходит через проброшенные порты 7881/7882 — объявляем localhost,
+  # а не внутренний IP контейнера (иначе ICE не проходит).
+  node_ip: 127.0.0.1
 redis:
   address: redis:6379
 keys:
   devkey: devsecret-devsecret-devsecret-devsecret
 logging:
   level: info
+# Вебхуки в core: крупье покинула комнату → стол уходит из эфира.
+webhook:
+  api_key: devkey
+  urls:
+    - http://host.docker.internal:3000/livekit/webhook

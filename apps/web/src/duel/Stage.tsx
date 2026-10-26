@@ -1,10 +1,10 @@
 import { useRef, type PointerEvent } from 'react';
-import { DEALERS, ROUNDS_TO_RECIPROCITY } from './data';
+import { ROUNDS_TO_RECIPROCITY } from './data';
 import s from './duel.module.css';
 import { LIFT_TRANSITION, useLift } from './lift';
 import { badge, caption, fmtSec, roundOf, timerOf } from './logic';
 import { useDuel } from './store';
-import { VideoFill } from './Video';
+import { DealerVideo } from '../live/media';
 
 export type Layout = 'mobile' | 'desktop';
 
@@ -27,7 +27,7 @@ export function Stage({ layout, onHelp }: StageProps) {
   const down = useRef<{ x: number; t: EventTarget | null } | null>(null);
   const items = state.mode[state.dealer] === 'items';
   const sz = layout === 'desktop' ? SIZES.desktop : items ? SIZES.mobileItems : SIZES.mobile;
-  const d = DEALERS[state.dealer]!;
+  const d = state.dealers[state.dealer]!;
   const timer = timerOf(state, now);
   const liftTimer = useLift('timer');
   const liftHelp = useLift('help');
@@ -35,7 +35,7 @@ export function Stage({ layout, onHelp }: StageProps) {
   const playing = Object.entries(state.rounds).filter(
     ([, r]) => r.phase !== 'pick' && r.phase !== 'done',
   ).length;
-  const n = DEALERS.length;
+  const n = state.dealers.length;
 
   const onDown = (e: PointerEvent) => {
     down.current = { x: e.clientX, t: e.target };
@@ -69,7 +69,7 @@ export function Stage({ layout, onHelp }: StageProps) {
       onPointerCancel={() => (down.current = null)}
     >
       <div className={s.pill} style={{ left: 10 }}>
-        <span className={s.liveDot} /> LIVE · {d.scene}
+        <span className={s.liveDot} /> {d.live ? 'LIVE' : 'ДЕМО'} · {d.scene}
       </div>
       <div
         className={`${s.pill} ${s.timer}`}
@@ -101,7 +101,7 @@ export function Stage({ layout, onHelp }: StageProps) {
 
       {[-2, -1, 0, 1, 2].map((off) => {
         const idx = (state.dealer + off + n * 2) % n;
-        const dealer = DEALERS[idx]!;
+        const dealer = state.dealers[idx]!;
         const abs = Math.abs(off);
         const size = abs === 0 ? sz.center : abs === 1 ? sz.near : sz.far;
         const x = abs === 0 ? 0 : abs === 1 ? sz.step : sz.step + (sz.near + sz.far) / 2 + sz.gap;
@@ -134,7 +134,10 @@ export function Stage({ layout, onHelp }: StageProps) {
             }
           >
             <div className={s.video}>
-              <VideoFill tint={dealer.tint} label={center ? 'видео-кружок' : null} />
+              <DealerVideo
+                dealer={dealer}
+                label={center ? (dealer.live ? 'в эфире' : 'видео-кружок') : null}
+              />
             </div>
             {center && (
               <svg

@@ -1,27 +1,32 @@
 /** Mock-данные игрового экрана (docs/ui-spec.md §4–5). */
 
 export interface Dealer {
+  /** demo-N для демо-столов, user_id — для крупье в эфире. */
+  id: string;
   name: string;
   scene: 'Кабаре' | 'Лобби' | 'Природа' | 'Кресло';
   tint: string;
   /** Минимальная ставка за столом. */
   min: number;
   busy?: boolean;
+  /** Реальная крупье в эфире: видео из LiveKit вместо заглушки. */
+  live?: boolean;
 }
 
+/** Демо-столы: показываются, пока реальные крупье не в эфире, и для обучения. */
 export const DEALERS: Dealer[] = [
-  { name: 'Алина', scene: 'Кабаре', tint: '#B0202E', min: 1 },
-  { name: 'Ева', scene: 'Лобби', tint: '#A47A3A', min: 5 },
-  { name: 'Мила', scene: 'Природа', tint: '#4E8A4A', min: 1 },
-  { name: 'Соня', scene: 'Кресло', tint: '#7A4A2A', min: 10, busy: true },
-  { name: 'Лера', scene: 'Кабаре', tint: '#5A3AB0', min: 25 },
-  { name: 'Кира', scene: 'Лобби', tint: '#2A7AA4', min: 5 },
-  { name: 'Ника', scene: 'Природа', tint: '#C0603A', min: 1 },
-  { name: 'Яна', scene: 'Кресло', tint: '#A43A7A', min: 10 },
-  { name: 'Вика', scene: 'Кабаре', tint: '#3AA48A', min: 5 },
-  { name: 'Даша', scene: 'Лобби', tint: '#8A8A3A', min: 1 },
-  { name: 'Зоя', scene: 'Природа', tint: '#3A5AA4', min: 25, busy: true },
-  { name: 'Майя', scene: 'Кресло', tint: '#A4503A', min: 5 },
+  { id: 'demo-0', name: 'Алина', scene: 'Кабаре', tint: '#B0202E', min: 1 },
+  { id: 'demo-1', name: 'Ева', scene: 'Лобби', tint: '#A47A3A', min: 5 },
+  { id: 'demo-2', name: 'Мила', scene: 'Природа', tint: '#4E8A4A', min: 1 },
+  { id: 'demo-3', name: 'Соня', scene: 'Кресло', tint: '#7A4A2A', min: 10, busy: true },
+  { id: 'demo-4', name: 'Лера', scene: 'Кабаре', tint: '#5A3AB0', min: 25 },
+  { id: 'demo-5', name: 'Кира', scene: 'Лобби', tint: '#2A7AA4', min: 5 },
+  { id: 'demo-6', name: 'Ника', scene: 'Природа', tint: '#C0603A', min: 1 },
+  { id: 'demo-7', name: 'Яна', scene: 'Кресло', tint: '#A43A7A', min: 10 },
+  { id: 'demo-8', name: 'Вика', scene: 'Кабаре', tint: '#3AA48A', min: 5 },
+  { id: 'demo-9', name: 'Даша', scene: 'Лобби', tint: '#8A8A3A', min: 1 },
+  { id: 'demo-10', name: 'Зоя', scene: 'Природа', tint: '#3A5AA4', min: 25, busy: true },
+  { id: 'demo-11', name: 'Майя', scene: 'Кресло', tint: '#A4503A', min: 5 },
 ];
 
 export const CHIPS = [
@@ -65,3 +70,11 @@ export const START_BALANCE = 1_000;
 export const STAKE_FEE_BPS = 229;
 export const WIN_FEE_BPS = 1_000;
 export const RECIPROCITY_WIN_FEE_BPS = 2_000;
+
+export const SCENES = {
+  cabaret: { label: 'Кабаре', tint: '#B0202E' },
+  lobby: { label: 'Лобби', tint: '#2A7AA4' },
+  nature: { label: 'Природа', tint: '#4E8A4A' },
+  armchair: { label: 'Кресло', tint: '#A4503A' },
+} as const;
+export type SceneId = keyof typeof SCENES;
