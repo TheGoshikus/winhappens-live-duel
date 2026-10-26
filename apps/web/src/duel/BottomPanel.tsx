@@ -2,7 +2,15 @@ import { Chip } from './Chip';
 import { CHIPS, DEALERS, ITEMS, chipColor } from './data';
 import s from './duel.module.css';
 import { LIFT_TRANSITION, useLift } from './lift';
-import { canConfirm, ctaLabel, roundOf, winAmount } from './logic';
+import {
+  canConfirm,
+  costCents,
+  ctaLabel,
+  fmtMoney,
+  payoutCents,
+  roundOf,
+  stakeFeeCents,
+} from './logic';
 import { useDuel } from './store';
 
 /** Ряд фишек + сводка ставки (обычный режим). */
@@ -23,7 +31,7 @@ export function ChipsRow({ size = 44, summary = true }: { size?: number; summary
           size={size}
           dataChip={c.value}
           selected={state.chip === c.value && state.stake === c.value}
-          disabled={!picking || c.value > state.balance}
+          disabled={!picking || costCents(c.value) > state.balance}
           onClick={() => dispatch({ type: 'chip', value: c.value })}
         />
       ))}
@@ -33,7 +41,11 @@ export function ChipsRow({ size = 44, summary = true }: { size?: number; summary
             Ставка <b style={{ fontFamily: 'var(--font-mono)' }}>{state.stake}</b>
           </span>
           <span style={{ color: 'var(--even)' }}>
-            Выигрыш <b style={{ fontFamily: 'var(--font-mono)' }}>{winAmount(state.stake)}</b>
+            Выигрыш{' '}
+            <b style={{ fontFamily: 'var(--font-mono)' }}>{fmtMoney(payoutCents(state.stake))}</b>
+          </span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+            сбор {fmtMoney(stakeFeeCents(state.stake))}
           </span>
         </div>
       )}

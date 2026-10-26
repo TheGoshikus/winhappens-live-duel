@@ -58,4 +58,10 @@ export const REVEAL_AFTER_MS = 4_000;
 export const DONE_AFTER_MS = 5_500;
 /** Окно приёма ставок для таймера на сцене, с. */
 export const BET_WINDOW_SEC = 15;
+/** Стартовый баланс в фишках; внутри логики деньги — в сотых (как FUN в ledger, 10⁻²). */
 export const START_BALANCE = 1_000;
+
+/** Комиссия площадки (docs/decisions.md): сбор со ставки и комиссия с выигрыша, в б.п. */
+export const STAKE_FEE_BPS = 229;
+export const WIN_FEE_BPS = 1_000;
+export const RECIPROCITY_WIN_FEE_BPS = 2_000;
