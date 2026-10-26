@@ -1,0 +1,604 @@
+/* ---------- каркас мобильного экрана (ui-spec §3) ---------- */
+.app {
+  position: relative;
+  height: 100dvh;
+  max-width: 430px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-app);
+  user-select: none;
+}
+
+.statusBar {
+  height: 47px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top);
+}
+
+.logo {
+  font-family: var(--font-logo);
+  font-size: 22px;
+}
+
+.balance {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  background: var(--surface-1);
+  border-radius: 14px;
+  padding: 5px 10px;
+}
+
+.caps {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* ---------- сцена ---------- */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+  margin: 0 8px;
+  border-radius: 20px;
+  overflow: hidden;
+  background-color: #05070d;
+  transition: background 0.35s;
+  touch-action: pan-y;
+}
+
+.pill {
+  position: absolute;
+  top: 10px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 14px;
+  background: #000000aa;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 3;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 8px var(--live);
+}
+
+.timer {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s;
+}
+
+.hint {
+  position: absolute;
+  top: 46px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.help {
+  position: absolute;
+  right: 10px;
+  top: 49px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ffffff14;
+  border: 1px solid var(--surface-3);
+  font-weight: 800;
+  z-index: 4;
+}
+
+/* увеличенная тап-зона до 44px */
+.help::after,
+.arrow::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.arrow {
+  position: absolute;
+  top: 47%;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  border-radius: 50%;
+  background: #00000066;
+  border: 1px solid var(--surface-3);
+  font-size: 22px;
+  line-height: 1;
+  z-index: 3;
+}
+
+.circle {
+  position: absolute;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  transition:
+    left 0.45s var(--ease-carousel),
+    width 0.45s var(--ease-carousel),
+    height 0.45s var(--ease-carousel),
+    opacity 0.45s var(--ease-carousel);
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 10px 40px #0008;
+}
+
+.videoFill {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 18%;
+  font-size: 10px;
+  color: #ffffffaa;
+  font-weight: 600;
+}
+
+.ring {
+  position: absolute;
+  inset: -8px;
+  width: calc(100% + 16px);
+  height: calc(100% + 16px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+  transition: filter 0.6s;
+}
+
+.ringFull {
+  filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px #ffffffaa);
+}
+
+.ring circle {
+  transition: stroke-dasharray 0.6s var(--ease-carousel);
+}
+
+.name {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 6px #000;
+}
+
+.badge {
+  position: absolute;
+  top: 2%;
+  right: 2%;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.caption {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 30px;
+  font-weight: 800;
+  text-shadow: 0 2px 24px #000a;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ---------- полоса дуэли ---------- */
+.duel {
+  height: 44px;
+  flex: none;
+  margin: 8px 8px 0;
+  border-radius: 12px;
+  background: var(--surface-1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.duelNum {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  flex: none;
+}
+
+.duelMid {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ---------- поле чисел ---------- */
+.boardLabel {
+  height: 16px;
+  margin: 8px 12px 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: none;
+}
+
+.board {
+  height: 104px;
+  flex: none;
+  margin: 0 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.tile {
+  position: relative;
+  border-radius: 12px;
+  background: #ffffff12;
+  border: 1px solid #ffffff1f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.2s,
+    background 0.2s;
+}
+
+.tileSel {
+  background: #fff;
+  border: 2px solid #fff;
+}
+
+.tileOff {
+  opacity: 0.35;
+}
+
+.digit {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  transition: font-size 0.3s;
+}
+
+.digitCorner {
+  position: absolute;
+  right: 7px;
+  top: 6px;
+  font-size: 13px;
+}
+
+.parity {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-top: 3px;
+}
+
+/* ---------- фишка ---------- */
+.chip {
+  position: relative;
+  border-radius: 50%;
+  flex: none;
+  box-shadow:
+    0 3px 0 #00000088,
+    0 6px 12px #0006;
+  transition: transform 0.2s var(--ease-spring);
+}
+
+.chipInner {
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  border: 1.5px dashed #ffffffb3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+}
+
+.chipSel {
+  transform: translateY(-6px);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 3px 0 #00000088,
+    0 6px 12px #0006;
+}
+
+.flying {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  transition: all 0.6s cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+
+/* ---------- нижняя панель ---------- */
+.panel {
+  flex: none;
+  margin-top: 10px;
+  padding: 12px 12px calc(30px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0;
+  background: var(--surface-1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chipsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.summary {
+  margin-left: auto;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.square {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-weight: 800;
+  font-size: 16px;
+  transition: transform 0.35s var(--ease-spring);
+}
+
+.square:disabled {
+  opacity: 0.45;
+}
+
+.cta {
+  flex: 1;
+  height: 52px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 10px;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.35s var(--ease-spring);
+}
+
+.cta:disabled {
+  background: #ffffff1f;
+  color: #ffffff80;
+}
+
+/* ---------- режим взаимности ---------- */
+.informer {
+  background: #fff;
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.itemsRow {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 10px 2px 2px;
+  scrollbar-width: none;
+}
+
+.item {
+  flex: none;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.itemCircle {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition:
+    transform 0.25s var(--ease-spring),
+    background 0.2s;
+}
+
+.itemSel .itemCircle {
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--accent-blue);
+  transform: translateY(-5px);
+}
+
+.itemOff {
+  opacity: 0.35;
+}
+
+.price {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ---------- оверлеи ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+}
+
+.dimmed {
+  background: var(--dim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 24px 20px calc(30px + env(safe-area-inset-bottom));
+}
+
+.sheetTitle {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 10px 0 8px;
+}
+
+.sheetText {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0 0 20px;
+}
+
+.pillCta {
+  height: 54px;
+  border-radius: 27px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 16px;
+  width: 100%;
+}
+
+.textBtn {
+  height: 44px;
+  width: 100%;
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.offerAvatar {
+  width: 128px;
+  height: 128px;
+  position: relative;
+  border-radius: 50%;
+  align-self: center;
+  margin-bottom: 18px;
+  box-shadow:
+    0 0 0 4px #fff,
+    0 0 40px 10px #ffffff88;
+}
+
+/* полноэкранное видео */
+.fullTop {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fullBottom {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.statusPill {
+  align-self: center;
+  background: #000000aa;
+  border-radius: 16px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.roundBtn {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 50%;
+  background: #00000088;
+  border: 1px solid var(--surface-3);
+  font-size: 20px;
+}
+
+.close {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #00000088;
+  font-size: 18px;
+  flex: none;
+}

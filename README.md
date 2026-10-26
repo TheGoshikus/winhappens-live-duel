@@ -6,6 +6,7 @@
 - [Архитектура](docs/architecture.md)
 - [Платёжный шлюз](docs/payments.md)
 - [План разработки](docs/roadmap.md)
+- [ТЗ на игровой экран (web)](docs/ui-spec.md)
 
 ## Разработка
 
