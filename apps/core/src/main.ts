@@ -4,6 +4,7 @@ import { buildApp } from './app.js';
 import { createDb, migrateToLatest } from './db/index.js';
 import {
   createIdentityModule,
+  createPaymentsModule,
   createRoundModule,
   createVideoModule,
   createWalletModule,
@@ -29,6 +30,7 @@ const app = buildApp(
     identity,
     video: createVideoModule(db, config, identity),
     rounds,
+    payments: createPaymentsModule(config, identity, wallet),
     wallet,
   },
   { logger: { level: config.env.LOG_LEVEL } },

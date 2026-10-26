@@ -7,6 +7,7 @@ export const testEnv = {
   LIVEKIT_API_KEY: 'devkey',
   LIVEKIT_API_SECRET: 'x'.repeat(32),
   PAYMENT_GATEWAY_URL: 'http://localhost:3100',
+  PAYMENT_GATEWAY_SECRET: 'g'.repeat(32),
   JWT_SECRET: 'test-secret-test-secret-test-secret!',
   GEO_REAL_MONEY_BLOCKED: 'US',
   GEO_ADULT_ALLOWED: 'DE',

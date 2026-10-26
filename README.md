@@ -83,4 +83,20 @@ pnpm dev          # docker compose (postgres: core + payments, redis, livekit) +
 Таймауты: не закоммитили оба за `seatHoldSec` (10 с) — отмена с возвратом; не раскрылся один за
 `revealTimeoutSec` (10 с) — проигрыш ему. Завершённый раунд в БД неизменяем.
 
+### Платежи (этап 3)
+
+core:
+
+| Метод                            | Назначение                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `POST /wallet/deposits`          | пополнение USDT (после регистрации): `amount`, `currency` USDT/EUR, `rail` card/crypto → ссылка на оплату |
+| `POST /wallet/withdrawals`       | вывод (после KYC): средства замораживаются до ответа шлюза                                                |
+| `POST /internal/payments/events` | события шлюза (HMAC): `deposit.succeeded`, `payout.succeeded/failed` → ledger                             |
+
+payment-gateway (отдельная БД `payments`): внутренний API `/v1/deposits`, `/v1/payouts`,
+`/v1/payouts/:id/review` (подпись HMAC общим секретом), вебхуки провайдеров `/webhooks/:provider` с дедупом,
+outbox → core с повторами. В разработке — mock-провайдер: страница оплаты `/mock/checkout/:ref`,
+выплаты подтверждаются автоматически (адрес с «fail» — отказ). Выплаты выше `PAYOUT_REVIEW_THRESHOLD`
+идут на ручную проверку.
+
 Страна по IP берётся из заголовка доверенного прокси (`GEO_COUNTRY_HEADER`, по умолчанию `cf-ipcountry`). В разработке OTP-код пишется в лог core.

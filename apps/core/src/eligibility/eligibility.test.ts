@@ -192,3 +192,30 @@ describe('canBeDealer', () => {
     });
   });
 });
+
+describe('canDeposit / canWithdraw', () => {
+  it('пополнение — после регистрации (KYC не нужен), с проверкой гео и самоисключения', () => {
+    const registeredNoKyc = { ...verified, kyc: null };
+    expect(elig().canDeposit(registeredNoKyc)).toEqual({ ok: true });
+    expect(elig().canDeposit(guest)).toMatchObject({ reason: 'registration_required' });
+    expect(elig().canDeposit({ ...registeredNoKyc, ipCountry: 'US' })).toMatchObject({
+      reason: 'geo_blocked',
+    });
+    expect(
+      elig().canDeposit({
+        ...verified,
+        settings: { adultOptIn: false, selfExcludedUntil: new Date('2027-01-01') },
+      }),
+    ).toMatchObject({ reason: 'self_excluded' });
+  });
+
+  it('вывод — только после KYC и с 18 лет', () => {
+    expect(elig().canWithdraw(verified)).toEqual({ ok: true });
+    expect(elig().canWithdraw({ ...verified, kyc: null })).toMatchObject({
+      reason: 'kyc_required',
+    });
+    expect(elig().canWithdraw(withKyc({ birthdate: '2010-01-01' }))).toMatchObject({
+      reason: 'underage',
+    });
+  });
+});

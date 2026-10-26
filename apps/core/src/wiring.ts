@@ -7,6 +7,9 @@ import { MockOtpSender, type OtpSender } from './identity/otp.js';
 import type { IdentityRoutesDeps } from './identity/routes.js';
 import { createIdentityService } from './identity/service.js';
 import { createTokens } from './identity/tokens.js';
+import { createGatewayClient } from './payments/gateway-client.js';
+import type { PaymentRoutesDeps } from './payments/routes.js';
+import { createPaymentsService } from './payments/service.js';
 import type { RoundRoutesDeps } from './rounds/routes.js';
 import { createRoundService } from './rounds/service.js';
 import { createRoundSigner } from './rounds/signer.js';
@@ -106,5 +109,24 @@ export function createRoundModule(
       ...(clock ? { clock } : {}),
     }),
     countryHeader: config.env.GEO_COUNTRY_HEADER,
+  };
+}
+
+export function createPaymentsModule(
+  config: CoreConfig,
+  identity: IdentityRoutesDeps,
+  wallet: WalletRoutesDeps,
+  fetchImpl?: typeof fetch,
+): PaymentRoutesDeps {
+  const { env } = config;
+  return {
+    payments: createPaymentsService({
+      gateway: createGatewayClient(env.PAYMENT_GATEWAY_URL, env.PAYMENT_GATEWAY_SECRET, fetchImpl),
+      wallet: wallet.wallet,
+      eligibility: identity.eligibility,
+      subject: (userId, ip) => identity.identity.getSubject(userId, ip),
+    }),
+    gatewaySecret: env.PAYMENT_GATEWAY_SECRET,
+    countryHeader: env.GEO_COUNTRY_HEADER,
   };
 }

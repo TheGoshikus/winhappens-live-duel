@@ -14,13 +14,14 @@ import { useDuel } from './store';
 
 interface Props {
   onHelp: () => void;
+  onWallet?: () => void;
   showParity?: boolean;
   frameRef?: RefObject<HTMLDivElement>;
   children?: ReactNode;
 }
 
 /** Десктоп 1440×900: сайдбар ставки + сцена (ui-spec §8, блок 4c). */
-export function DesktopGame({ onHelp, showParity, frameRef, children }: Props) {
+export function DesktopGame({ onHelp, onWallet, showParity, frameRef, children }: Props) {
   const { state, dispatch, confirm } = useDuel();
   const own = useRef<HTMLDivElement>(null);
   const frame = frameRef ?? own;
@@ -55,9 +56,9 @@ export function DesktopGame({ onHelp, showParity, frameRef, children }: Props) {
             LIVE DUEL
           </span>
         </div>
-        <div className={d.balance} aria-label="Баланс">
+        <button type="button" className={d.balance} aria-label="Баланс" onClick={onWallet}>
           ◎ {fmtMoney(state.balance)}
-        </div>
+        </button>
         <div className={d.tabs} role="tablist">
           <button type="button" role="tab" aria-selected className={`${d.tab} ${d.tabOn}`}>
             Ручная

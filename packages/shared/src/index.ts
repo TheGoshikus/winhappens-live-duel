@@ -5,3 +5,4 @@ export * from './auth.js';
 export * from './wallet.js';
 export * from './video.js';
 export * from './round.js';
+export * from './payments.js';

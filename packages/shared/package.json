@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
   },
   "scripts": {
     "lint": "eslint src",
@@ -13,5 +14,8 @@
   },
   "dependencies": {
     "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
   }
 }

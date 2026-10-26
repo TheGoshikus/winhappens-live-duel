@@ -147,7 +147,26 @@ export function createEligibility(
     return ALLOW;
   }
 
-  return { canPlay, canAdult, canStayX2, canOpposite, canBeDealer };
+  /**
+   * Пополнение реальными деньгами: нужна регистрация (docs/decisions.md), без самоисключения,
+   * страна по IP не в списке запрещённых.
+   */
+  function canDeposit(s: EligibilitySubject): Decision {
+    if (s.user.status !== 'active') return deny('user_blocked');
+    if (s.user.kind !== 'registered') return deny('registration_required');
+    const until = s.settings?.selfExcludedUntil;
+    if (until && until > clock()) return deny('self_excluded');
+    return checkGeo(s, (c) => !geo.realMoneyBlocked.has(c), 'geo_blocked');
+  }
+
+  /** Вывод — только после KYC и с 18 лет (payments.md §6). */
+  function canWithdraw(s: EligibilitySubject): Decision {
+    if (s.user.status !== 'active') return deny('user_blocked');
+    if (s.user.kind !== 'registered') return deny('registration_required');
+    return verifiedAdult(s);
+  }
+
+  return { canPlay, canAdult, canStayX2, canOpposite, canBeDealer, canDeposit, canWithdraw };
 }
 
 export type Eligibility = ReturnType<typeof createEligibility>;

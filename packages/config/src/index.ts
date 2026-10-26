@@ -27,16 +27,34 @@ export const coreEnvSchema = identityEnvSchema.extend({
   LIVEKIT_API_KEY: z.string().min(1),
   LIVEKIT_API_SECRET: z.string().min(32),
   PAYMENT_GATEWAY_URL: url,
+  PAYMENT_GATEWAY_SECRET: z.string().min(32),
   /** Seed ключа Ed25519 (32 байта, base64) для подписи результатов раундов. */
   ROUND_SIGNING_KEY: z
     .string()
     .refine((v) => Buffer.from(v, 'base64').length === 32, 'expected 32-byte base64 Ed25519 seed'),
 });
 
+const sharedSecret = z.string().min(32);
+
 export const gatewayEnvSchema = z.object({
   ...common,
   PAYMENT_GATEWAY_PORT: port.default(3100),
   PAYMENTS_DATABASE_URL: url,
+  /** Адрес шлюза для браузера (ссылки на hosted checkout mock-провайдера). */
+  PAYMENT_GATEWAY_PUBLIC_URL: url.default('http://localhost:3100'),
+  /** Общий секрет core ↔ gateway: подпись запросов и событий (HMAC). */
+  PAYMENT_GATEWAY_SECRET: sharedSecret,
+  /** Куда шлюз доставляет события outbox. */
+  CORE_EVENTS_URL: url.default('http://localhost:3000/internal/payments/events'),
+  /** Секрет подписи вебхуков mock-провайдера. */
+  MOCK_PROVIDER_SECRET: z.string().min(16),
+  /** Выплаты выше порога (USDT minor) идут на ручную проверку (payments.md §6). */
+  PAYOUT_REVIEW_THRESHOLD: z.coerce.bigint().positive().default(100_000_000n),
+  /** Котировка EUR → USDT для депозитов в евро (mock; в проде — от провайдера). */
+  FX_EUR_USDT: z
+    .string()
+    .regex(/^\d+(\.\d{1,6})?$/)
+    .default('1.08'),
 });
 
 function parseOrThrow<T extends z.ZodTypeAny>(name: string, schema: T, input: unknown): z.infer<T> {

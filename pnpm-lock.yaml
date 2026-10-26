@@ -96,13 +96,22 @@ importers:
       fastify:
         specifier: ^5.2.0
         version: 5.12.7
+      kysely:
+        specifier: ^0.29.7
+        version: 0.29.7
       pg:
         specifier: ^8.13.1
         version: 8.23.1
+      uuidv7:
+        specifier: ^1.2.1
+        version: 1.2.1
       zod:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@testcontainers/postgresql':
+        specifier: ^12.2.1
+        version: 12.2.1
       '@types/pg':
         specifier: ^8.11.10
         version: 8.23.1
@@ -152,6 +161,10 @@ importers:
       zod:
         specifier: ^3.24.1
         version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.5
 
 packages:
 

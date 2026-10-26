@@ -12,12 +12,13 @@ import {
 } from './Onboarding';
 import { api } from '../live/api';
 import { LiveMediaContext } from '../live/media';
+import { WalletSheet } from '../live/WalletSheet';
 import type { ItemId } from './data';
 import { useDealerMedia } from '../live/room';
 import { useLiveDealers } from '../live/useLiveDealers';
 import { useDuel } from './store';
 
-type Overlay = 'rules' | 'tour' | 'labels' | 'checklist' | 'menu' | null;
+type Overlay = 'rules' | 'tour' | 'labels' | 'checklist' | 'menu' | 'wallet' | null;
 
 const STORAGE = { onboarded: 'wh.onboarded', tourDone: 'wh.tourDone' };
 const read = (k: string) => {
@@ -82,6 +83,11 @@ export function Shell() {
     setOverlay(null);
   }, []);
   const pick = (c: HelpChoice) => setOverlay(c);
+  // Кошелёк показывает реальный баланс — игровой экран подхватывает его.
+  const onWalletBalance = useCallback(
+    (cents: number) => dispatch({ type: 'setBalance', cents }),
+    [dispatch],
+  );
 
   const layer = (
     <>
@@ -104,6 +110,9 @@ export function Shell() {
       )}
       {overlay === 'labels' && <LabelsOverlay frame={frame} onClose={() => setOverlay(null)} />}
       {overlay === 'menu' && <HelpMenu onPick={pick} onClose={() => setOverlay(null)} />}
+      {overlay === 'wallet' && (
+        <WalletSheet onClose={() => setOverlay(null)} onBalance={onWalletBalance} />
+      )}
       {overlay === 'checklist' && (
         <Checklist
           st={{ tourDone, deposited: state.balance > 0, played: state.history.length > 0 }}
@@ -116,7 +125,12 @@ export function Shell() {
 
   // Подписи ЧЁТ/НЕЧЁТ на поле — только во время онбординга.
   const onboarding = overlay === 'rules' || overlay === 'tour' || overlay === 'labels';
-  const props = { onHelp: () => setOverlay('menu'), showParity: onboarding, frameRef: frame };
+  const props = {
+    onHelp: () => setOverlay('menu'),
+    onWallet: () => setOverlay('wallet'),
+    showParity: onboarding,
+    frameRef: frame,
+  };
   return (
     <LiveMediaContext.Provider value={{ dealerId: liveId, media }}>
       <TourKeyContext.Provider value={overlay === 'tour' ? tourKey : null}>

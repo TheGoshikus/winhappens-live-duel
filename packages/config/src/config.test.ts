@@ -14,6 +14,7 @@ const coreEnv = {
   LIVEKIT_API_KEY: 'devkey',
   LIVEKIT_API_SECRET: 'x'.repeat(32),
   PAYMENT_GATEWAY_URL: 'http://localhost:3100',
+  PAYMENT_GATEWAY_SECRET: 'g'.repeat(32),
   JWT_SECRET: 'j'.repeat(32),
   ROUND_SIGNING_KEY: Buffer.alloc(32, 1).toString('base64'),
 };
@@ -65,10 +66,14 @@ describe('config', () => {
 
   it('gateway требует свою БД', () => {
     expect(() => loadGatewayConfig({})).toThrow(/PAYMENTS_DATABASE_URL/);
-    expect(
-      loadGatewayConfig({ PAYMENTS_DATABASE_URL: 'postgres://x@h/payments' }).env
-        .PAYMENT_GATEWAY_PORT,
-    ).toBe(3100);
+    const gw = loadGatewayConfig({
+      PAYMENTS_DATABASE_URL: 'postgres://x@h/payments',
+      PAYMENT_GATEWAY_SECRET: 'g'.repeat(32),
+      MOCK_PROVIDER_SECRET: 'm'.repeat(16),
+    }).env;
+    expect(gw.PAYMENT_GATEWAY_PORT).toBe(3100);
+    expect(gw.PAYOUT_REVIEW_THRESHOLD).toBe(100_000_000n);
+    expect(gw.FX_EUR_USDT).toBe('1.08');
   });
 
   it('гео-политика: списки стран и булевы флаги', () => {

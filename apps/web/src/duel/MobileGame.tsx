@@ -12,13 +12,14 @@ import { useDuel } from './store';
 
 interface Props {
   onHelp: () => void;
+  onWallet?: () => void;
   showParity?: boolean;
   frameRef?: React.RefObject<HTMLDivElement>;
   children?: React.ReactNode;
 }
 
 /** Мобильный игровой экран 390×844 (ui-spec §3, блок 5a). */
-export function MobileGame({ onHelp, showParity, frameRef, children }: Props) {
+export function MobileGame({ onHelp, onWallet, showParity, frameRef, children }: Props) {
   const { state, confirm } = useDuel();
   const own = useRef<HTMLDivElement>(null);
   const frame = frameRef ?? own;
@@ -39,9 +40,9 @@ export function MobileGame({ onHelp, showParity, frameRef, children }: Props) {
     <div className={s.app} ref={frame}>
       <div className={s.statusBar}>
         <span className={s.logo}>Win!</span>
-        <span className={s.balance} aria-label="Баланс">
+        <button type="button" className={s.balance} aria-label="Баланс" onClick={onWallet}>
           ◎ {fmtMoney(state.balance)}
-        </span>
+        </button>
       </div>
       <Stage layout="mobile" onHelp={onHelp} />
       <DuelStrip />
