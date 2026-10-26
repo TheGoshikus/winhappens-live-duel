@@ -6,7 +6,7 @@ import s from './duel.module.css';
 import { DuelStrip } from './DuelStrip';
 import { useFlyingChip } from './fly';
 import { useLift } from './lift';
-import { canConfirm, ctaLabel, roundOf, winAmount } from './logic';
+import { canConfirm, ctaLabel, fmtMoney, payoutCents, roundOf, stakeFeeCents } from './logic';
 import { NumberBoard } from './NumberBoard';
 import { FullscreenVideo, OfferModal } from './Overlays';
 import { Stage } from './Stage';
@@ -56,7 +56,7 @@ export function DesktopGame({ onHelp, showParity, frameRef, children }: Props) {
           </span>
         </div>
         <div className={d.balance} aria-label="Баланс">
-          ◎ {state.balance}
+          ◎ {fmtMoney(state.balance)}
         </div>
         <div className={d.tabs} role="tablist">
           <button type="button" role="tab" aria-selected className={`${d.tab} ${d.tabOn}`}>
@@ -119,7 +119,11 @@ export function DesktopGame({ onHelp, showParity, frameRef, children }: Props) {
           </div>
           <div style={{ color: 'var(--even)' }}>
             <span>Выигрыш</span>
-            <b>{winAmount(picking ? state.stake : r.stake)}</b>
+            <b>{fmtMoney(payoutCents(picking ? state.stake : r.stake, items))}</b>
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+            <span>Сбор 2,29%</span>
+            <b>{fmtMoney(stakeFeeCents(picking ? state.stake : r.stake))}</b>
           </div>
         </div>
 
@@ -146,9 +150,9 @@ export function DesktopGame({ onHelp, showParity, frameRef, children }: Props) {
                   key={i}
                   className={d.sq}
                   style={h ? { background: h.won ? '#3DDC97' : '#FF6B81' } : undefined}
-                  title={h ? (h.won ? `+${h.amount}` : `−${h.amount}`) : undefined}
+                  title={h ? `${h.won ? '+' : '−'}${fmtMoney(h.amount)}` : undefined}
                 >
-                  {h ? (h.won ? `+${h.amount}` : `−${h.amount}`) : ''}
+                  {h ? `${h.won ? '+' : '−'}${Math.round(h.amount / 100)}` : ''}
                 </span>
               );
             })}

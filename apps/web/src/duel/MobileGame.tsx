@@ -4,7 +4,7 @@ import { Chip } from './Chip';
 import s from './duel.module.css';
 import { DuelStrip } from './DuelStrip';
 import { useFlyingChip } from './fly';
-import { canConfirm, roundOf } from './logic';
+import { canConfirm, fmtMoney, roundOf } from './logic';
 import { NumberBoard } from './NumberBoard';
 import { FullscreenVideo, OfferModal } from './Overlays';
 import { Stage } from './Stage';
@@ -40,7 +40,7 @@ export function MobileGame({ onHelp, showParity, frameRef, children }: Props) {
       <div className={s.statusBar}>
         <span className={s.logo}>Win!</span>
         <span className={s.balance} aria-label="Баланс">
-          ◎ {state.balance}
+          ◎ {fmtMoney(state.balance)}
         </span>
       </div>
       <Stage layout="mobile" onHelp={onHelp} />

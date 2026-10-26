@@ -11,7 +11,11 @@ import {
   roundOf,
   stepDealer,
   timerOf,
-  winAmount,
+  costCents,
+  fmtMoney,
+  maxStake,
+  payoutCents,
+  stakeFeeCents,
   type Action,
   type DuelState,
 } from './logic';
@@ -32,12 +36,22 @@ const playRound = (s: DuelState, n: number) => {
 };
 
 describe('правила', () => {
-  it('игрок — ЧЁТ: побеждает при чётной сумме; выигрыш минус 10%', () => {
+  it('игрок — ЧЁТ: побеждает при чётной сумме', () => {
     expect(playerWins(2, 4)).toBe(true);
     expect(playerWins(3, 4)).toBe(false);
-    expect(winAmount(10)).toBe(19);
-    expect(winAmount(5)).toBe(9);
-    expect(winAmount(1)).toBe(1);
+  });
+
+  it('комиссия: 2,29% со ставки + 10% с выигрыша (во взаимности 20%)', () => {
+    expect(stakeFeeCents(10)).toBe(22);
+    expect(stakeFeeCents(100)).toBe(229);
+    expect(costCents(10)).toBe(1022);
+    expect(payoutCents(10)).toBe(1900);
+    expect(payoutCents(10, true)).toBe(1800);
+    expect(payoutCents(5)).toBe(950);
+    expect(fmtMoney(1900)).toBe('19');
+    expect(fmtMoney(950)).toBe('9,50');
+    expect(maxStake(3000)).toBe(29);
+    expect(costCents(maxStake(3000) + 1)).toBeGreaterThan(3000);
   });
 
   it('листание пропускает занятых крупье по кругу', () => {
@@ -73,8 +87,9 @@ describe('ставка', () => {
       { type: 'half' },
     );
     expect(s.stake).toBe(1);
-    s = run({ ...s, balance: 30, stake: 20 }, { type: 'double' });
-    expect(s.stake).toBe(30);
+    // Удвоение упирается в баланс вместе со сбором: на 30 фишек можно поставить 29.
+    s = run({ ...s, balance: 3000, stake: 20 }, { type: 'double' });
+    expect(s.stake).toBe(29);
   });
 
   it('CTA проходит все состояния', () => {
@@ -85,7 +100,7 @@ describe('ставка', () => {
     expect(ctaLabel(s)).toBe('Ставка 5 на 7');
     s = run(s, { type: 'confirm', now: T });
     expect(ctaLabel(s)).toBe('Ждём крупье… можно листать');
-    expect(s.balance).toBe(995);
+    expect(s.balance).toBe(100_000 - 511);
     expect(run(s, { type: 'chip', value: 100 }).stake).toBe(5); // после ставки менять нельзя
     s = run(s, { type: 'reveal', dealer: 0, now: T }, { type: 'finish', dealer: 0 });
     expect(ctaLabel(s)).toBe('Следующий раунд');
@@ -100,12 +115,12 @@ describe('ставка', () => {
     s = run(s, { type: 'reveal', dealer: 0, now: T });
     expect(caption(s)).toBe('1 + 3 = 4');
     s = run(s, { type: 'finish', dealer: 0 });
-    expect(caption(s)).toBe('ПОБЕДА +9');
-    expect(s.balance).toBe(1000 - 5 + 9);
+    expect(caption(s)).toBe('ПОБЕДА +9,50');
+    expect(s.balance).toBe(100_000 - 511 + 950);
 
     const lost = playRound(initialState(T), 2);
     expect(caption(lost)).toBe('АЛИНА ЗАБИРАЕТ');
-    expect(lost.balance).toBe(995);
+    expect(lost.balance).toBe(100_000 - 511);
   });
 
   it('раунды у разных крупье идут параллельно, бейджи у соседей', () => {
@@ -119,7 +134,7 @@ describe('ставка', () => {
     expect(badge(s, 0)).toEqual({ kind: 'live', text: '●' });
     s = run(s, { type: 'pick', n: 0 }, { type: 'confirm', now: T });
     s = run(s, { type: 'reveal', dealer: 0, now: T }, { type: 'finish', dealer: 0 });
-    expect(badge(s, 0)).toEqual({ kind: 'win', text: '+4' });
+    expect(badge(s, 0)).toEqual({ kind: 'win', text: '+4,39' });
     expect(roundOf(s, 1).phase).toBe('wait');
   });
 
@@ -161,6 +176,8 @@ describe('взаимность', () => {
     );
     expect(caption(s)).toBe('ПОБЕДА · ШАРФ СНИМАЕТСЯ');
     expect(s.removed[0]).toEqual(['scarf']);
+    // Взаимность: 20% с выигрыша.
+    expect(s.balance).toBe(100_000 - 1022 + 1800);
     s = run(s, { type: 'nextRound', now: T }, { type: 'item', id: 'scarf' });
     expect(s.item).toBeNull();
   });
