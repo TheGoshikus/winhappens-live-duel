@@ -30,8 +30,15 @@ export interface Changes {
   sessions: Set<string>;
   /** Изменился состав занятых столов (сессия началась/закончилась). */
   tables: boolean;
+  /** Открытые смены (после конца сессии). */
+  shifts: Set<string>;
 }
-const newChanges = (): Changes => ({ rounds: new Set(), sessions: new Set(), tables: false });
+const newChanges = (): Changes => ({
+  rounds: new Set(),
+  sessions: new Set(),
+  tables: false,
+  shifts: new Set(),
+});
 
 export interface RoundDeps {
   db: Db;
@@ -48,6 +55,7 @@ export interface RoundDeps {
     | 'sessionDurationSec'
     | 'roundsBuffer'
     | 'reconnectGraceSec'
+    | 'shiftDecisionSec'
   >;
   /** Присутствие (WS): переподключение за reconnectGraceSec, иначе выход из сессии. */
   isOnline?: (userId: string) => Promise<boolean>;
@@ -119,7 +127,7 @@ export function createRoundService(deps: RoundDeps) {
   async function run<T>(fn: (trx: Db, ch: Changes) => Promise<T>): Promise<T> {
     const ch = newChanges();
     const result = await db.transaction().execute((trx) => fn(trx, ch));
-    if (deps.emit && (ch.rounds.size || ch.sessions.size || ch.tables))
+    if (deps.emit && (ch.rounds.size || ch.sessions.size || ch.tables || ch.shifts.size))
       await deps.emit(ch, service).catch(() => {});
     return result;
   }
@@ -139,13 +147,33 @@ export function createRoundService(deps: RoundDeps) {
         trx,
       );
     }
-    await updateSession(trx, s.id, {
-      status: 'ended',
-      end_reason: s.end_reason ?? reason,
-      ended_at: clock(),
-    });
+    const final = s.end_reason ?? reason;
+    await updateSession(trx, s.id, { status: 'ended', end_reason: final, ended_at: clock() });
     ch.sessions.add(s.id);
     ch.tables = true;
+    // Сессия отыграна до конца (время или депозит) — смена на shiftDecisionSec: дальше / ×2 / выйти.
+    if (final === 'time_over' || final === 'deposit_exhausted') {
+      const id = uuidv7();
+      await trx
+        .insertInto('shift')
+        .values({
+          id,
+          session_id: s.id,
+          dealer_id: s.dealer_id,
+          player_id: s.player_id,
+          currency: s.currency,
+          stake: s.stake,
+          stay_streak: s.stay_streak,
+          deadline: new Date(clock().getTime() + game.shiftDecisionSec * 1000),
+          player_choice: null,
+          dealer_choice: null,
+          status: 'open',
+          outcome: null,
+          next_session_id: null,
+        })
+        .execute();
+      ch.shifts.add(id);
+    }
   }
 
   const openRound = (trx: Db, sessionId: string) =>
@@ -389,7 +417,7 @@ export function createRoundService(deps: RoundDeps) {
      */
     async startSession(
       playerId: string,
-      q: { dealerId: string; stake: bigint },
+      q: { dealerId: string; stake: bigint; stayStreak?: number },
       ipCountry: string | null,
     ) {
       if (playerId === q.dealerId) throw new AppError(409, 'cannot_play_self');
@@ -443,6 +471,7 @@ export function createRoundService(deps: RoundDeps) {
               ended_at: null,
               player_offline_at: null,
               dealer_offline_at: null,
+              stay_streak: q.stayStreak ?? 0,
             })
             .execute();
         } catch (e) {

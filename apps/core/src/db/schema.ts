@@ -138,6 +138,7 @@ export interface DealerProfileTable {
   room: string;
   went_live_at: Timestamp | null;
   updated_at: Timestamp;
+  auto_accept: Generated<boolean>;
 }
 
 export interface DuelRoundTable {
@@ -183,6 +184,47 @@ export interface DuelSessionTable {
   ended_at: Timestamp | null;
   player_offline_at: Timestamp | null;
   dealer_offline_at: Timestamp | null;
+  stay_streak: Generated<number>;
+}
+
+export type ShiftChoice = 'next' | 'stay' | 'opposite' | 'exit';
+
+export interface MatchTicketTable {
+  id: string;
+  player_id: string;
+  mode: 'direct' | 'random';
+  currency: 'USDT' | 'FUN';
+  stake: bigint;
+  gender_pref: 'any' | 'opposite';
+  adult: Generated<boolean>;
+  player_ip_country: string | null;
+  dealer_id: string | null;
+  status: 'waiting' | 'offered' | 'accepted' | 'cancelled' | 'expired';
+  reason: string | null;
+  offer_deadline: Timestamp | null;
+  excluded: ColumnType<string[], string[] | undefined, string[]>;
+  stay_streak: Generated<number>;
+  session_id: string | null;
+  created_at: CreatedAt;
+  updated_at: Timestamp;
+}
+
+export interface ShiftTable {
+  id: string;
+  session_id: string;
+  dealer_id: string;
+  player_id: string;
+  currency: 'USDT' | 'FUN';
+  stake: bigint;
+  stay_streak: number;
+  deadline: Timestamp;
+  paused: Generated<boolean>;
+  player_choice: ShiftChoice | null;
+  dealer_choice: 'stay' | 'next' | null;
+  status: 'open' | 'resolved';
+  outcome: string | null;
+  next_session_id: string | null;
+  created_at: CreatedAt;
 }
 
 export interface Database {
@@ -200,6 +242,8 @@ export interface Database {
   dealer_profile: DealerProfileTable;
   duel_round: DuelRoundTable;
   duel_session: DuelSessionTable;
+  match_ticket: MatchTicketTable;
+  shift: ShiftTable;
 }
 
 export type User = Selectable<UsersTable>;

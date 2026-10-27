@@ -7,6 +7,7 @@ import { createNotifier } from './realtime/notifier.js';
 import { createRedisPresence } from './realtime/presence.js';
 import {
   createIdentityModule,
+  createMatchModule,
   createPaymentsModule,
   createRoundModule,
   createVideoModule,
@@ -35,6 +36,10 @@ const rounds = createRoundModule(db, config, identity, wallet, {
   isOnline: (userId) => presence.isOnline(userId),
   emit: (ch, svc) => notifier.changes(ch, svc),
 });
+const matchmaking = createMatchModule(db, config, identity, wallet, rounds, {
+  emit: (ch, svc) => notifier.matchChanges(ch, svc),
+});
+notifier.useMatchmaking(matchmaking.matchmaking);
 const app = buildApp(
   {
     probes: {
@@ -53,12 +58,16 @@ const app = buildApp(
       notifier.wallet(userId),
     ),
     realtime: { bus, presence, tokens: identity.tokens },
+    matchmaking,
   },
   { logger: { level: config.env.LOG_LEVEL } },
 );
 
 // Таймауты раундов, конец сессий и переподключение — даже если клиенты молчат (architecture §6.3).
-const sweeper = setInterval(() => void rounds.rounds.sweep().catch((e) => app.log.error(e)), 1_000);
+const sweeper = setInterval(() => {
+  void rounds.rounds.sweep().catch((e) => app.log.error(e));
+  void matchmaking.matchmaking.sweep().catch((e) => app.log.error(e));
+}, 1_000);
 
 app.addHook('onClose', async () => {
   clearInterval(sweeper);

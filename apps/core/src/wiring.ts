@@ -7,6 +7,8 @@ import { MockOtpSender, type OtpSender } from './identity/otp.js';
 import type { IdentityRoutesDeps } from './identity/routes.js';
 import { createIdentityService } from './identity/service.js';
 import { createTokens } from './identity/tokens.js';
+import type { MatchRoutesDeps } from './matchmaking/routes.js';
+import { createMatchmaking, type MatchChanges, type Matchmaking } from './matchmaking/service.js';
 import { createGatewayClient } from './payments/gateway-client.js';
 import type { PaymentRoutesDeps } from './payments/routes.js';
 import { createPaymentsService } from './payments/service.js';
@@ -138,5 +140,28 @@ export function createPaymentsModule(
     }),
     gatewaySecret: env.PAYMENT_GATEWAY_SECRET,
     countryHeader: env.GEO_COUNTRY_HEADER,
+  };
+}
+
+export function createMatchModule(
+  db: Db,
+  config: CoreConfig,
+  identity: IdentityRoutesDeps,
+  wallet: WalletRoutesDeps,
+  rounds: RoundRoutesDeps,
+  opts: { clock?: () => Date; emit?: (ch: MatchChanges, svc: Matchmaking) => Promise<void> } = {},
+): MatchRoutesDeps {
+  return {
+    matchmaking: createMatchmaking({
+      db,
+      rounds: rounds.rounds,
+      wallet: wallet.wallet,
+      eligibility: identity.eligibility,
+      subject: (userId, ip) => identity.identity.getSubject(userId, ip),
+      game: config.game,
+      ...(opts.clock ? { clock: opts.clock } : {}),
+      ...(opts.emit ? { emit: opts.emit } : {}),
+    }),
+    countryHeader: config.env.GEO_COUNTRY_HEADER,
   };
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { currencySchema, minorSchema } from './money.js';
+import { matchViewSchema, shiftViewSchema } from './match.js';
 import { roundViewSchema } from './round.js';
 
 /**
@@ -45,6 +46,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('wallet.updated'), USDT: balances, FUN: balances }),
   z.object({ type: z.literal('round.updated'), round: roundViewSchema }),
   z.object({ type: z.literal('session.updated'), session: sessionViewSchema }),
+  z.object({ type: z.literal('match.updated'), match: matchViewSchema }),
+  z.object({ type: z.literal('shift.updated'), shift: shiftViewSchema }),
   /** Состав столов в эфире изменился — перечитать GET /dealers. */
   z.object({ type: z.literal('dealers.updated') }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string() }),

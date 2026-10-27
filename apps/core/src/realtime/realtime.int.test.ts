@@ -10,6 +10,7 @@ import { testEnv } from '../test/env.js';
 import { startTestDb } from '../test/postgres.js';
 import {
   createIdentityModule,
+  createMatchModule,
   createRoundModule,
   createVideoModule,
   createWalletModule,
@@ -39,12 +40,17 @@ beforeAll(async () => {
     busy: () => rounds.rounds.busyDealers(),
     onTablesChanged: () => notifier.tablesChanged(),
   });
+  const matchmaking = createMatchModule(t.db, config, identity, wallet, rounds, {
+    emit: (ch, svc) => notifier.matchChanges(ch, svc),
+  });
+  notifier.useMatchmaking(matchmaking.matchmaking);
   app = buildApp({
     probes: {},
     identity,
     wallet,
     rounds,
     video,
+    matchmaking,
     realtime: { bus, presence, tokens: identity.tokens },
   });
   const addr = await app.listen({ port: 0, host: '127.0.0.1' });
@@ -191,5 +197,28 @@ describe('WS-шлюз', () => {
     // Посторонний раундов не видит.
     expect(co.events.some((e) => e.type === 'round.updated')).toBe(false);
     for (const c of [cd, cp, co]) c.ws.close();
+  });
+
+  it('матч: крупье получает предложение, игрок — принятие и сессию', async () => {
+    const [d, p] = [await dealer(), await guest()];
+    await app.inject({
+      method: 'PATCH',
+      url: '/dealer/settings',
+      headers: H(d),
+      payload: { autoAccept: false },
+    });
+    const [cd, cp] = [client(d.accessToken), client(p.accessToken)];
+    await Promise.all([cd.next('ready'), cp.next('ready')]);
+    const m = await post(p, '/matches', { dealerId: d.userId, stake: '1000' });
+    expect((await cd.next('match.updated', (e) => e.match.id === m.id)).match.status).toBe(
+      'offered',
+    );
+    await post(d, `/matches/${m.id}/accept`);
+    const acc = await cp.next('match.updated', (e) => e.match.status === 'accepted');
+    expect(
+      (await cp.next('session.updated', (e) => e.session.id === acc.match.sessionId)).session
+        .status,
+    ).toBe('active');
+    for (const c of [cd, cp]) c.ws.close();
   });
 });

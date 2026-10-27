@@ -4,6 +4,7 @@ import { AppError } from './errors.js';
 import { registerHealth, type Probe } from './health.js';
 import { registerAuth } from './identity/auth.js';
 import { identityRoutes, type IdentityRoutesDeps } from './identity/routes.js';
+import { matchRoutes, type MatchRoutesDeps } from './matchmaking/routes.js';
 import { paymentRoutes, type PaymentRoutesDeps } from './payments/routes.js';
 import { realtimeGateway, type RealtimeDeps } from './realtime/gateway.js';
 import { roundRoutes, type RoundRoutesDeps } from './rounds/routes.js';
@@ -19,6 +20,7 @@ export interface CoreDeps {
   rounds?: RoundRoutesDeps;
   payments?: PaymentRoutesDeps;
   realtime?: RealtimeDeps;
+  matchmaking?: MatchRoutesDeps;
 }
 
 export function buildApp(deps: CoreDeps, opts: FastifyServerOptions = {}) {
@@ -41,7 +43,7 @@ export function buildApp(deps: CoreDeps, opts: FastifyServerOptions = {}) {
   });
 
   registerHealth(app, 'core', deps.probes);
-  const { identity, wallet, video, rounds, payments, realtime } = deps;
+  const { identity, wallet, video, rounds, payments, realtime, matchmaking } = deps;
   if (identity) {
     registerAuth(app, identity.tokens);
     app.register(async (scope) => identityRoutes(scope, identity));
@@ -50,6 +52,7 @@ export function buildApp(deps: CoreDeps, opts: FastifyServerOptions = {}) {
     if (rounds) app.register(async (scope) => roundRoutes(scope, rounds));
     if (payments) app.register(async (scope) => paymentRoutes(scope, payments));
     if (realtime) app.register(async (scope) => realtimeGateway(scope, realtime));
+    if (matchmaking) app.register(async (scope) => matchRoutes(scope, matchmaking));
   }
   return app;
 }
