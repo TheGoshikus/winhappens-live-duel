@@ -62,6 +62,15 @@ describe('правила', () => {
     expect(stepDealer(DEALERS, 9, 1)).toBe(11);
   });
 
+  it('ставка от сервера (матч, «остаться ×2») открывает следующий раунд', () => {
+    const done = playRound(initialState(T), 2);
+    expect(roundOf(done, done.dealer).phase).toBe('done');
+    const s = run(done, { type: 'setStake', value: 20, now: T + 1 });
+    expect(s.stake).toBe(20);
+    expect(roundOf(s, s.dealer).phase).toBe('pick');
+    expect(roundOf(s, s.dealer).count).toBe(roundOf(done, done.dealer).count);
+  });
+
   it('смена крупье поднимает ставку до его минимума', () => {
     const s = run(
       initialState(T),

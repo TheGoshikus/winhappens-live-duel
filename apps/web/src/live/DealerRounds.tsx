@@ -1,14 +1,18 @@
 import {
   dealerRoundsResponseSchema,
+  matchViewSchema,
   sessionViewSchema,
+  shiftViewSchema,
   walletResponseSchema,
+  type MatchView,
   type RoundView,
   type SessionView,
+  type ShiftView,
 } from '@winhappens/shared';
 import { useEffect, useRef, useState } from 'react';
 import { ITEMS } from '../duel/data';
 import { fmtMoney } from '../duel/logic';
-import { api } from './api';
+import { api, currentUserId } from './api';
 import { commitRound, randomSalt, revealRound } from './rounds';
 import { connectRealtime, onEvent } from './socket';
 import st from './studio.module.css';
@@ -29,6 +33,8 @@ export function DealerRounds() {
   const [rounds, setRounds] = useState<RoundView[]>([]);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [session, setSession] = useState<SessionView | null>(null);
+  const [offer, setOffer] = useState<MatchView | null>(null);
+  const [shift, setShift] = useState<ShiftView | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const secrets = useRef(new Map<string, { number: number; salt: string }>());
   const busy = useRef(new Set<string>());
@@ -59,10 +65,32 @@ export function DealerRounds() {
         // временная ошибка сети — следующий тик повторит
       }
     };
+    // Предложения матча (без автопринятия) и смена после сессии.
+    const onMatch = (m: MatchView) => {
+      setOffer((cur) =>
+        m.status === 'offered' && m.dealerId === currentUserId()
+          ? m
+          : cur?.id === m.id
+            ? null
+            : cur,
+      );
+    };
+    const onShift = (sh: ShiftView) => {
+      if (sh.seat !== 1) return;
+      setShift((cur) => (sh.status === 'open' ? sh : cur?.id === sh.id ? null : cur));
+    };
+    api<{ matches: unknown[]; shifts: unknown[] }>('/matches/active')
+      .then((a) => {
+        a.matches.map((x) => matchViewSchema.parse(x)).forEach(onMatch);
+        a.shifts.map((x) => shiftViewSchema.parse(x)).forEach(onShift);
+      })
+      .catch(() => {});
     void tick();
     const offs = [
       onEvent('round.updated', () => void tick()),
       onEvent('session.updated', () => void tick()),
+      onEvent('match.updated', (e) => onMatch(e.match)),
+      onEvent('shift.updated', (e) => onShift(e.shift)),
     ];
     const id = window.setInterval(tick, POLL_MS);
     const clockId = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -86,6 +114,19 @@ export function DealerRounds() {
     }
   };
 
+  const answer = async (m: MatchView, verb: 'accept' | 'decline') => {
+    setOffer(null);
+    await api(`/matches/${m.id}/${verb}`, { method: 'POST' }).catch(() => {});
+  };
+  const decide = async (sh: ShiftView, choice: 'stay' | 'next') => {
+    setShift({ ...sh, myChoice: choice });
+    await api(`/shifts/${sh.id}/decide`, { body: { choice } }).catch(() => setShift(null));
+  };
+  const offerSec = offer?.offerDeadline
+    ? Math.max(0, Math.ceil((Date.parse(offer.offerDeadline) - now) / 1000))
+    : 0;
+  const shiftSec = shift ? Math.max(0, Math.ceil((Date.parse(shift.deadline) - now) / 1000)) : 0;
+
   const open = rounds.find((r) => r.status === 'commit' || r.status === 'reveal');
   const recent = rounds
     .filter((r) => r.status === 'settled' || r.status === 'cancelled')
@@ -101,6 +142,60 @@ export function DealerRounds() {
           <span style={{ fontFamily: 'var(--font-mono)' }}>◎ {fmtMoney(Number(balance))}</span>
         )}
       </div>
+      {offer && offerSec > 0 && (
+        <div className={st.muted} style={{ color: '#fff' }} data-dealer-offer>
+          Игрок хочет сыграть · ставка <b>{fmtMoney(Number(offer.stake))}</b> · {offerSec} с
+          <div className={st.row} style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              className={st.cta}
+              style={{ flex: 1 }}
+              onClick={() => answer(offer, 'accept')}
+            >
+              Принять
+            </button>
+            <button
+              type="button"
+              className={st.opt}
+              style={{ flex: 1 }}
+              onClick={() => answer(offer, 'decline')}
+            >
+              Отклонить
+            </button>
+          </div>
+        </div>
+      )}
+      {shift && !session && (
+        <div className={st.muted} style={{ color: '#fff' }} data-dealer-shift>
+          Сессия окончена · {shiftSec} с.{' '}
+          {shift.myChoice
+            ? shift.myChoice === 'stay'
+              ? 'Вы остаётесь — ждём решения игрока…'
+              : 'Стол освободится после решения игрока.'
+            : `Остаться с игроком на ставке ${fmtMoney(Number(shift.stayStake))}?`}
+          {!shift.myChoice && (
+            <div className={st.row} style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className={st.cta}
+                style={{ flex: 1 }}
+                disabled={!shift.canStay}
+                onClick={() => decide(shift, 'stay')}
+              >
+                Остаться
+              </button>
+              <button
+                type="button"
+                className={st.opt}
+                style={{ flex: 1 }}
+                onClick={() => decide(shift, 'next')}
+              >
+                Свободна
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {session ? (
         <div className={st.muted} style={{ color: '#fff', fontSize: 13 }} data-dealer-session>
           Сессия с игроком · {fmtLeft(session, now)} · ваш депозит{' '}

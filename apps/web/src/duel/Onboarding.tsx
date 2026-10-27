@@ -515,7 +515,7 @@ export function Checklist({
 
 // ---------- меню «?» ----------
 
-export type HelpChoice = 'tour' | 'labels' | 'checklist' | 'rules';
+export type HelpChoice = 'random' | 'tour' | 'labels' | 'checklist' | 'rules';
 
 export function HelpMenu({
   onPick,
@@ -525,6 +525,7 @@ export function HelpMenu({
   onClose: () => void;
 }) {
   const items: [HelpChoice, string][] = [
+    ['random', 'Случайный стол'],
     ['tour', 'Видео-обучение · 36 сек'],
     ['labels', 'Все кнопки'],
     ['checklist', 'Первые шаги'],

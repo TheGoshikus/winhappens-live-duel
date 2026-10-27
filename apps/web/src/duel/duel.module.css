@@ -602,3 +602,48 @@
   font-size: 18px;
   flex: none;
 }
+
+/* ---------- смена (Shift) и поиск стола ---------- */
+.shiftGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shiftBtn {
+  height: 54px;
+  border-radius: 27px;
+  background: #ffffff1f;
+  font-weight: 800;
+  font-size: 16px;
+  width: 100%;
+}
+
+.shiftBtn:disabled {
+  color: #ffffff60;
+}
+
+.matchBanner {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 20px;
+  background: #000000cc;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.matchBanner button {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: #ffffff26;
+  font-weight: 700;
+}

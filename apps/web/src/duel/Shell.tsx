@@ -16,6 +16,7 @@ import { WalletSheet } from '../live/WalletSheet';
 import type { ItemId } from './data';
 import { useDealerMedia } from '../live/room';
 import { useLiveDealers } from '../live/useLiveDealers';
+import { MatchBanner, ShiftOverlay } from './Shift';
 import { useDuel } from './store';
 
 type Overlay = 'rules' | 'tour' | 'labels' | 'checklist' | 'menu' | 'wallet' | null;
@@ -51,7 +52,7 @@ function useDesktop() {
 
 /** Игровой экран + онбординг: правила при первом запуске, видео-обучение, подписи, чек-лист. */
 export function Shell() {
-  const { state, dispatch } = useDuel();
+  const { state, dispatch, shift, findRandom } = useDuel();
   const desktop = useDesktop();
   const frame = useRef<HTMLDivElement>(null);
   const [overlay, setOverlay] = useState<Overlay>(() => (read(STORAGE.onboarded) ? null : 'rules'));
@@ -82,7 +83,11 @@ export function Shell() {
     }
     setOverlay(null);
   }, []);
-  const pick = (c: HelpChoice) => setOverlay(c);
+  const pick = (c: HelpChoice) => {
+    if (c !== 'random') return setOverlay(c);
+    setOverlay(null);
+    void findRandom();
+  };
   // Кошелёк показывает реальный баланс — игровой экран подхватывает его.
   const onWalletBalance = useCallback(
     (cents: number) => dispatch({ type: 'setBalance', cents }),
@@ -91,6 +96,8 @@ export function Shell() {
 
   const layer = (
     <>
+      <MatchBanner />
+      {shift && overlay !== 'wallet' && <ShiftOverlay onWallet={() => setOverlay('wallet')} />}
       {overlay === 'rules' && (
         <RulesOverlay
           onWatch={() => {

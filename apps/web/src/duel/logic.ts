@@ -84,6 +84,8 @@ export type Action =
   | { type: 'acceptOffer'; now: number }
   | { type: 'dismissOffer' }
   | { type: 'full'; open: boolean }
+  /** Ставка задана сервером (матч, «остаться ×2»). */
+  | { type: 'setStake'; value: number; now: number }
   | { type: 'syncLive'; live: LiveTable[]; now: number };
 
 /** Крупье в эфире (GET /dealers), минимальная ставка — в фишках. */
@@ -241,6 +243,18 @@ function reduce(s: DuelState, a: Action): DuelState {
     case 'pick':
       if (!picking || a.n < 0 || a.n > 9) return s;
       return updateRound(s, s.dealer, { pick: a.n });
+    case 'setStake': {
+      // Новая сессия идёт сразу: после завершённого раунда — к следующему с этой ставкой.
+      const stake = Math.max(1, a.value);
+      if (cur.phase === 'done')
+        return {
+          ...s,
+          stake,
+          item: null,
+          rounds: { ...s.rounds, [s.dealer]: newRound(cur.count, a.now, stake, s.chip) },
+        };
+      return picking ? { ...s, stake } : s;
+    }
     case 'chip':
       return picking ? { ...s, chip: a.value, stake: a.value } : s;
     case 'half':

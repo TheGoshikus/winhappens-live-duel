@@ -66,6 +66,7 @@ function Broadcast({ onError }: { onError: (e: string | null) => void }) {
   const [tracks, setTracks] = useState<LocalTrack[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
   const [viewers, setViewers] = useState(0);
+  const [autoAccept, setAutoAccept] = useState(true);
   const video = useRef<HTMLVideoElement>(null);
 
   // Превью камеры до выхода в эфир.
@@ -111,9 +112,15 @@ function Broadcast({ onError }: { onError: (e: string | null) => void }) {
       for (const t of tracks) await r.localParticipant.publishTrack(t);
       count();
       setRoom(r);
+      await saveAutoAccept(autoAccept);
     } catch (e) {
       onError(explain(e));
     }
+  };
+
+  const saveAutoAccept = async (v: boolean) => {
+    setAutoAccept(v);
+    await api('/dealer/settings', { method: 'PATCH', body: { autoAccept: v } }).catch(() => {});
   };
 
   const stop = async () => {
@@ -141,6 +148,15 @@ function Broadcast({ onError }: { onError: (e: string | null) => void }) {
             Стол «{name}» открыт. Игроки видят вас в ленте. Сцена — {SCENES[scene].label}, ставка от{' '}
             {minStake}.
           </p>
+          <label className={st.muted} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              aria-label="Принимать игроков автоматически"
+              checked={autoAccept}
+              onChange={(e) => void saveAutoAccept(e.target.checked)}
+            />
+            Принимать игроков автоматически
+          </label>
           <button type="button" className={`${st.cta} ${st.danger}`} onClick={stop}>
             Завершить эфир
           </button>
